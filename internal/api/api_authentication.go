@@ -118,8 +118,8 @@ func (i *Instance) postAuthenticationLogin(request *restful.Request, response *r
 	} else if input.Username != "" && input.Password != "" {
 		// TODO: SIGN THE USER IN.
 
-		//claims.Subject = verifyRequest.Email
-		//claims.Email = verifyRequest.Email
+		claims.Subject = input.Username
+		claims.Email = input.Username
 	} else {
 		logrus.WithContext(ctx).Infof("This request is not authenticated.")
 	}
@@ -154,8 +154,8 @@ func (i *Instance) postAuthenticationLogin(request *restful.Request, response *r
 	}
 
 	output := downballotapi.LoginResponse{
-		//UserID: user.EmailAddress,
-		Token: tokenString,
+		UserID: input.Username,
+		Token:  tokenString,
 	}
 	WriteEntity(ctx, response, output)
 }
@@ -192,9 +192,6 @@ func (i *Instance) getAuthenticationStatus(request *restful.Request, response *r
 			Email: request.Attribute(AttributeUserID).(string),
 			Name:  request.Attribute(AttributeUserName).(string),
 			Admin: request.Attribute(AttributeSystemAdmin).(bool),
-			Properties: map[string]string{
-				"mcfc-cad.allowed": fmt.Sprintf("%t", request.Attribute(AttributeUserAllowed)),
-			},
 		}
 	}
 

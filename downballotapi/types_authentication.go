@@ -7,11 +7,10 @@ type AuthenticationStatusResponse struct {
 
 // AuthenticationStatusUser is the current user information.
 type AuthenticationStatusUser struct {
-	ID         string            `json:"id"`
-	Email      string            `json:"email"`
-	Name       string            `json:"name"`
-	Admin      bool              `json:"admin"`
-	Properties map[string]string `json:"properties"`
+	ID    string `json:"id"`
+	Email string `json:"email"`
+	Name  string `json:"name"`
+	Admin bool   `json:"admin"`
 }
 
 // CreateAccountRequest is used to create an account.
