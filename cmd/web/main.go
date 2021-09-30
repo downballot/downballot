@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -15,6 +16,7 @@ import (
 	"github.com/downballot/downballot/internal/api"
 	"github.com/downballot/downballot/internal/appconfig"
 	"github.com/downballot/downballot/internal/application"
+	"github.com/downballot/downballot/internal/database"
 	"github.com/downballot/downballot/internal/httpextra"
 	"github.com/downballot/downballot/internal/slackhook"
 	"github.com/sirupsen/logrus"
@@ -22,6 +24,8 @@ import (
 )
 
 func main() {
+	ctx := context.Background()
+
 	var err error
 
 	// Set the log level.
@@ -181,6 +185,11 @@ func main() {
 	}
 
 	app := application.New()
+	app.DB, err = database.New(ctx, config.DatabaseDriver, config.DatabaseString)
+	if err != nil {
+		logrus.Errorf("Could not connect to database: [%T] %v", err, err)
+		os.Exit(1)
+	}
 
 	apiInstance := api.New()
 	apiInstance.App = app

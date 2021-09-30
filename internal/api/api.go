@@ -163,6 +163,7 @@ func (i *Instance) Container() *restful.Container {
 
 		// Register the various endpoints.
 		i.registerAuthenticationEndpoints(ws)
+		i.registerOrganizationEndpoints(ws)
 
 		container.Add(ws)
 		documentedWebServices = append(documentedWebServices, ws)
@@ -298,27 +299,32 @@ func (i *Instance) requireAuthenticationFilter(required bool) func(request *rest
 				return
 			}
 
-			request.SetAttribute(AttributeLoggedIn, true)
+			request.SetAttribute(AttributeLoggedIn, false)
 			request.SetAttribute(AttributeSystemAdmin, false)
 			request.SetAttribute(AttributeUserToken, token)
 
-			claims, err := i.ValidateToken(token)
-			if err != nil {
-				logrus.WithContext(request.Request.Context()).Infof("[auth] Invalid token: %v", err)
-				WriteHeaderAndText(ctx, response, http.StatusUnauthorized, "Invalid token")
-				return
+			if i.Config.MasterToken != "" && token == i.Config.MasterToken {
+				request.SetAttribute(AttributeLoggedIn, true)
+				request.SetAttribute(AttributeSystemAdmin, true)
+			} else {
+				claims, err := i.ValidateToken(token)
+				if err != nil {
+					logrus.WithContext(request.Request.Context()).Infof("[auth] Invalid token: %v", err)
+					WriteHeaderAndText(ctx, response, http.StatusUnauthorized, "Invalid token")
+					return
+				}
+
+				request.SetAttribute(AttributeLoggedIn, true)
+				request.SetAttribute(AttributeUserID, claims.Subject)
+				request.SetAttribute(AttributeUserName, claims.Email)
+
+				// TODO: VALIDATE THE USER
 			}
 
-			request.SetAttribute(AttributeUserID, claims.Subject)
-			request.SetAttribute(AttributeUserName, claims.Email)
-
-			// TODO: VALIDATE THE USER
-
-			// If authentication is required, then fail if the user isn't "allowed".
+			// If authentication is required, then fail if the user is not logged in.
 			if required {
-				if request.Attribute(AttributeUserAllowed) != true {
-					// TODO: Consider a more generic account-disabled error message.
-					WriteHeaderAndText(ctx, response, http.StatusForbidden, fmt.Sprintf("You must be logged in."))
+				if request.Attribute(AttributeLoggedIn) != true {
+					WriteHeaderAndText(ctx, response, http.StatusUnauthorized, "You must be logged in.")
 					return
 				}
 			}

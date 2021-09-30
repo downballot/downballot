@@ -3,11 +3,13 @@ package application
 import (
 	"github.com/downballot/downballot/internal/cache"
 	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
 // App is a structure that contains the relevant services.
 type App struct {
 	Cache *cache.Cache
+	DB    *gorm.DB
 }
 
 // New creates a new app.
