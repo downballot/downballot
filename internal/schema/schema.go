@@ -11,8 +11,8 @@ func (Organization) TableName() string {
 
 type User struct {
 	ID       uint64 `gorm:"column:id;primaryKey;not null;autoIncrement"`
+	Username string `gorm:"column:username;size:256;unique"`
 	Name     string `gorm:"column:name;size:256"`
-	Username string `gorm:"column:name;size:256"`
 }
 
 func (User) TableName() string {

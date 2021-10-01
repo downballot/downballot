@@ -7,6 +7,7 @@ import (
 	"github.com/downballot/downballot/downballotapi"
 	"github.com/downballot/downballot/internal/schema"
 	restful "github.com/emicklei/go-restful/v3"
+	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )
 
@@ -51,6 +52,24 @@ func (i *Instance) registerUser(request *restful.Request, response *restful.Resp
 		return
 	}
 
+	{
+		var testUsers []*schema.User
+		err = i.App.DB.Session(&gorm.Session{NewDB: true}).
+			Where(map[string]interface{}{
+				"username": input.Username,
+			}).
+			Find(&testUsers).Error
+		if err != nil {
+			logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
+			WriteHeaderAndError(ctx, response, http.StatusBadRequest, err)
+			return
+		}
+		if len(testUsers) > 0 {
+			WriteHeaderAndText(ctx, response, http.StatusConflict, "Already taken username")
+			return
+		}
+	}
+
 	user := schema.User{
 		Name:     input.Name,
 		Username: input.Username,
@@ -63,6 +82,7 @@ func (i *Instance) registerUser(request *restful.Request, response *restful.Resp
 		err = i.App.DB.Session(&gorm.Session{NewDB: true}).
 			Create(&user).Error
 		if err != nil {
+			logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
 			return err
 		}
 
@@ -71,6 +91,7 @@ func (i *Instance) registerUser(request *restful.Request, response *restful.Resp
 		return nil
 	})
 	if err != nil {
+		logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
 		WriteHeaderAndError(ctx, response, http.StatusInternalServerError, err)
 		return
 	}
@@ -85,6 +106,7 @@ func (i *Instance) listUsers(request *restful.Request, response *restful.Respons
 	err := i.App.DB.Session(&gorm.Session{NewDB: true}).
 		Find(&users).Error
 	if err != nil {
+		logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
 		WriteHeaderAndError(ctx, response, http.StatusInternalServerError, err)
 		return
 	}

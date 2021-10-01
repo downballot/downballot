@@ -7,6 +7,7 @@ import (
 	"github.com/downballot/downballot/downballotapi"
 	"github.com/downballot/downballot/internal/schema"
 	restful "github.com/emicklei/go-restful/v3"
+	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )
 
@@ -34,6 +35,7 @@ func (i *Instance) registerOrganization(request *restful.Request, response *rest
 	var input downballotapi.RegisterOrganizationRequest
 	err := request.ReadEntity(&input)
 	if err != nil {
+		logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
 		WriteHeaderAndError(ctx, response, http.StatusBadRequest, err)
 		return
 	}
@@ -61,6 +63,7 @@ func (i *Instance) registerOrganization(request *restful.Request, response *rest
 		err = i.App.DB.Session(&gorm.Session{NewDB: true}).
 			Create(&organization).Error
 		if err != nil {
+			logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
 			return err
 		}
 
@@ -69,6 +72,7 @@ func (i *Instance) registerOrganization(request *restful.Request, response *rest
 		return nil
 	})
 	if err != nil {
+		logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
 		WriteHeaderAndError(ctx, response, http.StatusInternalServerError, err)
 		return
 	}
@@ -83,6 +87,7 @@ func (i *Instance) listOrganizations(request *restful.Request, response *restful
 	err := i.App.DB.Session(&gorm.Session{NewDB: true}).
 		Find(&organizations).Error
 	if err != nil {
+		logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
 		WriteHeaderAndError(ctx, response, http.StatusInternalServerError, err)
 		return
 	}
