@@ -18,6 +18,7 @@ import (
 	"github.com/downballot/downballot/internal/application"
 	"github.com/downballot/downballot/internal/database"
 	"github.com/downballot/downballot/internal/httpextra"
+	"github.com/downballot/downballot/internal/schema"
 	"github.com/downballot/downballot/internal/slackhook"
 	"github.com/sirupsen/logrus"
 	"github.com/slack-go/slack"
@@ -189,6 +190,16 @@ func main() {
 	if err != nil {
 		logrus.Errorf("Could not connect to database: [%T] %v", err, err)
 		os.Exit(1)
+	}
+	{
+		err := app.DB.AutoMigrate(
+			schema.Organization{},
+			schema.User{},
+		)
+		if err != nil {
+			logrus.Errorf("Could not auto-migrate database: [%T] %v", err, err)
+			os.Exit(1)
+		}
 	}
 
 	apiInstance := api.New()

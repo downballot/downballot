@@ -164,6 +164,7 @@ func (i *Instance) Container() *restful.Container {
 		// Register the various endpoints.
 		i.registerAuthenticationEndpoints(ws)
 		i.registerOrganizationEndpoints(ws)
+		i.registerUserEndpoints(ws)
 
 		container.Add(ws)
 		documentedWebServices = append(documentedWebServices, ws)
