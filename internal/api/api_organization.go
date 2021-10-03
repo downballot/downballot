@@ -50,6 +50,24 @@ func (i *Instance) registerOrganization(request *restful.Request, response *rest
 			return
 		}
 		input.OwnerID = fmt.Sprintf("%v", request.Attribute(AttributeUserID))
+		logrus.WithContext(ctx).Infof("No owner ID given; using current user: %s", input.OwnerID)
+	}
+	if input.OwnerID != "" && request.Attribute(AttributeUserID) != nil {
+		if fmt.Sprintf("%v", request.Attribute(AttributeUserID)) != input.OwnerID {
+			WriteHeaderAndText(ctx, response, http.StatusBadRequest, "Mismatched owner_id")
+			return
+		}
+	}
+
+	var owner schema.User
+	err = i.App.DB.Session(&gorm.Session{NewDB: true}).
+		Where("id = ?", input.OwnerID).
+		First(&owner).
+		Error
+	if err != nil {
+		logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
+		WriteHeaderAndError(ctx, response, http.StatusBadRequest, err)
+		return
 	}
 
 	organization := schema.Organization{
@@ -60,7 +78,7 @@ func (i *Instance) registerOrganization(request *restful.Request, response *rest
 		// TODO
 	}
 	err = i.App.DB.Transaction(func(tx *gorm.DB) error {
-		err = i.App.DB.Session(&gorm.Session{NewDB: true}).
+		err = tx.Session(&gorm.Session{NewDB: true}).
 			Create(&organization).Error
 		if err != nil {
 			logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
@@ -69,6 +87,18 @@ func (i *Instance) registerOrganization(request *restful.Request, response *rest
 
 		output.ID = fmt.Sprintf("%d", organization.ID)
 		output.Name = organization.Name
+
+		mapping := schema.UserOrganizationMap{
+			UserID:         owner.ID,
+			OrganizationID: organization.ID,
+		}
+		err = tx.Session(&gorm.Session{NewDB: true}).
+			Create(&mapping).
+			Error
+		if err != nil {
+			logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
+			return err
+		}
 		return nil
 	})
 	if err != nil {

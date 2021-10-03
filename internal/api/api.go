@@ -14,10 +14,12 @@ import (
 	"github.com/downballot/downballot/internal/apitoken"
 	"github.com/downballot/downballot/internal/appconfig"
 	"github.com/downballot/downballot/internal/application"
+	"github.com/downballot/downballot/internal/schema"
 	restfulspec "github.com/emicklei/go-restful-openapi/v2"
 	"github.com/emicklei/go-restful/v3"
 	"github.com/go-openapi/spec"
 	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
 // These are the attributes that are available as part of the request.
@@ -316,10 +318,30 @@ func (i *Instance) requireAuthenticationFilter(required bool) func(request *rest
 				}
 
 				request.SetAttribute(AttributeLoggedIn, true)
-				request.SetAttribute(AttributeUserID, claims.Subject)
 				request.SetAttribute(AttributeUserName, claims.Email)
 
 				// TODO: VALIDATE THE USER
+				var user *schema.User
+				{
+					var users []*schema.User
+					err = i.App.DB.Session(&gorm.Session{NewDB: true}).
+						Where("username = ?", claims.Email).
+						First(&users).
+						Error
+					if err != nil {
+						logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
+						WriteHeaderAndError(ctx, response, http.StatusInternalServerError, err)
+						return
+					}
+					if len(users) == 0 {
+						logrus.WithContext(request.Request.Context()).Infof("[auth] No such user: %s", claims.Email)
+						WriteHeaderAndText(ctx, response, http.StatusUnauthorized, "Invalid subject")
+						return
+					}
+					user = users[0]
+				}
+
+				request.SetAttribute(AttributeUserID, user.ID)
 			}
 
 			// If authentication is required, then fail if the user is not logged in.
