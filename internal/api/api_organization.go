@@ -114,7 +114,11 @@ func (i *Instance) listOrganizations(request *restful.Request, response *restful
 	ctx := request.Request.Context()
 
 	var organizations []*schema.Organization
-	err := i.App.DB.Session(&gorm.Session{NewDB: true}).
+	query := i.App.DB.Session(&gorm.Session{NewDB: true})
+	if request.Attribute(AttributeUserID) != nil {
+		query = query.Where("id IN (?)", i.App.DB.Session(&gorm.Session{NewDB: true}).Table(schema.UserOrganizationMap{}.TableName()).Select("id").Where("user_id = ?", request.Attribute(AttributeUserID)))
+	}
+	err := query.
 		Find(&organizations).Error
 	if err != nil {
 		logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
