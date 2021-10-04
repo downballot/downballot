@@ -30,3 +30,14 @@ type UserOrganizationMap struct {
 func (UserOrganizationMap) TableName() string {
 	return "user_organization_map"
 }
+
+type Person struct {
+	ID             uint64        `gorm:"column:id;primaryKey;not null;autoIncrement"`
+	OrganizationID uint64        `gorm:"column:organization_id;not null"`
+	Organization   *Organization `json:"-" gorm:"constraint:fk_user_organization_map_organization,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:organization_id;references:id"`
+	VoterID        string        `gorm:"column:voter_id;not null;size:256"`
+}
+
+func (Person) TableName() string {
+	return "person"
+}

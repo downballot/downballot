@@ -58,7 +58,8 @@ func (i *Instance) registerUser(request *restful.Request, response *restful.Resp
 			Where(map[string]interface{}{
 				"username": input.Username,
 			}).
-			Find(&testUsers).Error
+			Find(&testUsers).
+			Error
 		if err != nil {
 			logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
 			WriteHeaderAndError(ctx, response, http.StatusBadRequest, err)
@@ -80,7 +81,8 @@ func (i *Instance) registerUser(request *restful.Request, response *restful.Resp
 	}
 	err = i.App.DB.Transaction(func(tx *gorm.DB) error {
 		err = i.App.DB.Session(&gorm.Session{NewDB: true}).
-			Create(&user).Error
+			Create(&user).
+			Error
 		if err != nil {
 			logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
 			return err
@@ -104,7 +106,8 @@ func (i *Instance) listUsers(request *restful.Request, response *restful.Respons
 
 	var users []*schema.User
 	err := i.App.DB.Session(&gorm.Session{NewDB: true}).
-		Find(&users).Error
+		Find(&users).
+		Error
 	if err != nil {
 		logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
 		WriteHeaderAndError(ctx, response, http.StatusInternalServerError, err)

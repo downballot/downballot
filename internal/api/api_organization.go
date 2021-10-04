@@ -79,7 +79,8 @@ func (i *Instance) registerOrganization(request *restful.Request, response *rest
 	}
 	err = i.App.DB.Transaction(func(tx *gorm.DB) error {
 		err = tx.Session(&gorm.Session{NewDB: true}).
-			Create(&organization).Error
+			Create(&organization).
+			Error
 		if err != nil {
 			logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
 			return err
@@ -119,7 +120,8 @@ func (i *Instance) listOrganizations(request *restful.Request, response *restful
 		query = query.Where("id IN (?)", i.App.DB.Session(&gorm.Session{NewDB: true}).Table(schema.UserOrganizationMap{}.TableName()).Select("id").Where("user_id = ?", request.Attribute(AttributeUserID)))
 	}
 	err := query.
-		Find(&organizations).Error
+		Find(&organizations).
+		Error
 	if err != nil {
 		logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
 		WriteHeaderAndError(ctx, response, http.StatusInternalServerError, err)

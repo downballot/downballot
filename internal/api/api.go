@@ -165,6 +165,7 @@ func (i *Instance) Container() *restful.Container {
 
 		// Register the various endpoints.
 		i.registerAuthenticationEndpoints(ws)
+		i.registerPersonEndpoints(ws)
 		i.registerOrganizationEndpoints(ws)
 		i.registerUserEndpoints(ws)
 
