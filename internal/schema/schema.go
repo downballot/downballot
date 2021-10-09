@@ -32,12 +32,25 @@ func (UserOrganizationMap) TableName() string {
 }
 
 type Person struct {
-	ID             uint64        `gorm:"column:id;primaryKey;not null;autoIncrement"`
-	OrganizationID uint64        `gorm:"column:organization_id;not null"`
-	Organization   *Organization `json:"-" gorm:"constraint:fk_user_organization_map_organization,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:organization_id;references:id"`
-	VoterID        string        `gorm:"column:voter_id;not null;size:256"`
+	ID             uint64            `gorm:"column:id;primaryKey;not null;autoIncrement"`
+	OrganizationID uint64            `gorm:"column:organization_id;not null"`
+	Organization   *Organization     `json:"-" gorm:"constraint:fk_person_organization,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:organization_id;references:id"`
+	VoterID        string            `gorm:"column:voter_id;not null;size:256"`
+	Fields         map[string]string `gorm:"-"`
 }
 
 func (Person) TableName() string {
 	return "person"
+}
+
+type PersonField struct {
+	ID       uint64  `gorm:"column:id;primaryKey;not null;autoIncrement"`
+	PersonID uint64  `gorm:"column:person_id;not null"`
+	Person   *Person `json:"-" gorm:"constraint:fk_person_field_person,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:person_id;references:id"`
+	Name     string  `gorm:"column:name;not null;size:256"`
+	Value    string  `gorm:"column:value;not null;size:256"`
+}
+
+func (PersonField) TableName() string {
+	return "person_field"
 }

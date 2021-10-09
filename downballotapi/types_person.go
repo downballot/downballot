@@ -12,6 +12,7 @@ type ListPersonsResponse struct {
 
 // Person is an person.
 type Person struct {
-	ID      string `json:"id"`
-	VoterID string `json:"voter_id"`
+	ID      string            `json:"id"`
+	VoterID string            `json:"voter_id"`
+	Fields  map[string]string `json:"fields"`
 }

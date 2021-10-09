@@ -197,6 +197,7 @@ func main() {
 			schema.User{},
 			schema.UserOrganizationMap{},
 			schema.Person{},
+			schema.PersonField{},
 		)
 		if err != nil {
 			logrus.Errorf("Could not auto-migrate database: [%T] %v", err, err)

@@ -100,12 +100,14 @@ func (i *Instance) importPerson(request *restful.Request, response *restful.Resp
 		for h, name := range header {
 			internalName := columnMap[name]
 			if internalName != "" {
-				data[internalName] = row[h]
+				data["::"+internalName] = row[h]
 			}
+			data["vf::"+name] = row[h]
 		}
 
 		person := &schema.Person{}
-		person.VoterID = data[ColumnVoterID]
+		person.VoterID = data["::"+ColumnVoterID]
+		person.Fields = data
 
 		persons = append(persons, person)
 	}
@@ -120,6 +122,25 @@ func (i *Instance) importPerson(request *restful.Request, response *restful.Resp
 		if err != nil {
 			return err
 		}
+
+		var fields []*schema.PersonField
+		for _, person := range persons {
+			for name, value := range person.Fields {
+				field := &schema.PersonField{
+					PersonID: person.ID,
+					Name:     name,
+					Value:    value,
+				}
+				fields = append(fields, field)
+			}
+		}
+		err = tx.Session(&gorm.Session{NewDB: true}).
+			Create(&fields).
+			Error
+		if err != nil {
+			return err
+		}
+
 		return nil
 	})
 	if err != nil {
@@ -155,7 +176,23 @@ func (i *Instance) listPersons(request *restful.Request, response *restful.Respo
 		o := &downballotapi.Person{
 			ID:      fmt.Sprintf("%d", person.ID),
 			VoterID: person.VoterID,
+			Fields:  map[string]string{},
 		}
+
+		var fields []*schema.PersonField
+		err = i.App.DB.Session(&gorm.Session{NewDB: true}).
+			Where("person_id = ?", person.ID).
+			Find(&fields).
+			Error
+		if err != nil {
+			logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
+			WriteHeaderAndError(ctx, response, http.StatusInternalServerError, err)
+			return
+		}
+		for _, field := range fields {
+			o.Fields[field.Name] = field.Value
+		}
+
 		output.Persons = append(output.Persons, o)
 	}
 	WriteEntity(ctx, response, output)
