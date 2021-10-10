@@ -2,7 +2,6 @@ package api
 
 import (
 	"bytes"
-	"context"
 	"encoding/csv"
 	"fmt"
 	"io/ioutil"
@@ -10,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/downballot/downballot/downballotapi"
+	"github.com/downballot/downballot/internal/filter"
 	"github.com/downballot/downballot/internal/schema"
 	restful "github.com/emicklei/go-restful/v3"
 	"github.com/sirupsen/logrus"
@@ -30,7 +30,7 @@ func (i *Instance) registerPersonEndpoints(ws *restful.WebService) {
 			Doc(`List the persons`).
 			Notes(`This lists the persons.`).
 			Do(i.doRequireAuthentication).
-			Param(ws.QueryParameter("query", "The query to use")).
+			Param(ws.QueryParameter("filter", "The filter to use")).
 			Returns(http.StatusOK, "OK", downballotapi.ListPersonsResponse{}),
 	)
 }
@@ -157,9 +157,9 @@ func (i *Instance) importPerson(request *restful.Request, response *restful.Resp
 func (i *Instance) listPersons(request *restful.Request, response *restful.Response) {
 	ctx := request.Request.Context()
 
-	queryString := request.QueryParameter("query")
-	logrus.WithContext(ctx).Infof("Query string: %s", queryString)
-	parsedQuery, err := ParseQuery(ctx, queryString)
+	filterString := request.QueryParameter("filter")
+	logrus.WithContext(ctx).Infof("Filter string: %s", filterString)
+	clause, err := filter.Parse(ctx, filterString)
 	if err != nil {
 		logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
 		WriteHeaderAndError(ctx, response, http.StatusBadRequest, err)
@@ -204,7 +204,7 @@ func (i *Instance) listPersons(request *restful.Request, response *restful.Respo
 			o.Fields[field.Name] = field.Value
 		}
 
-		match, err := parsedQuery.Evaluate(o.Fields)
+		match, err := clause.Evaluate(o.Fields)
 		if err != nil {
 			logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
 			WriteHeaderAndError(ctx, response, http.StatusBadRequest, err)
@@ -215,100 +215,4 @@ func (i *Instance) listPersons(request *restful.Request, response *restful.Respo
 		}
 	}
 	WriteEntity(ctx, response, output)
-}
-
-type ParsedQuery struct {
-	Parts []ParsedQueryPart
-}
-
-func (p ParsedQuery) Evaluate(fields map[string]string) (bool, error) {
-	for _, part := range p.Parts {
-		value := fields[part.Name]
-		switch part.Operation {
-		case "=":
-			if strings.Compare(strings.ToLower(value), strings.ToLower(part.Value)) != 0 {
-				return false, nil
-			}
-		case "~":
-			if !strings.Contains(strings.ToLower(value), strings.ToLower(part.Value)) {
-				return false, nil
-			}
-		default:
-			return false, fmt.Errorf("invalid operation: %s", part.Operation)
-		}
-	}
-	return true, nil
-}
-
-type ParsedQueryPart struct {
-	Name      string
-	Operation string
-	Value     string
-}
-
-func ParseQuery(ctx context.Context, input string) (*ParsedQuery, error) {
-	output := &ParsedQuery{
-		Parts: []ParsedQueryPart{},
-	}
-
-	input += "\n"
-
-	var tokens []string
-	{
-		tokenStarted := false
-		var currentToken string
-		var currentQuote byte
-		for i := 0; i < len(input); i++ {
-			switch input[i] {
-			case ' ', '\t', '\n':
-				if currentQuote == byte(0) {
-					// End the current token (if any).
-					if tokenStarted {
-						tokens = append(tokens, currentToken)
-
-						tokenStarted = false
-						currentToken = ""
-						currentQuote = byte(0)
-					}
-				} else {
-					tokenStarted = true
-					currentToken += string(input[i])
-				}
-			case '"', '\'':
-				if currentQuote == byte(0) {
-					currentQuote = input[i]
-				} else if currentQuote == input[i] {
-					currentQuote = byte(0)
-				} else {
-					tokenStarted = true
-					currentToken += string(input[i])
-				}
-			default:
-				tokenStarted = true
-				currentToken += string(input[i])
-			}
-		}
-	}
-
-	logrus.WithContext(ctx).Infof("Tokens: (%d)", len(tokens))
-	for _, token := range tokens {
-		logrus.WithContext(ctx).Infof("* %q", token)
-	}
-
-	for i := 0; i < len(tokens); i++ {
-		if i+3 > len(tokens) {
-			return nil, fmt.Errorf("incorrect number of tokens")
-		}
-		p := ParsedQueryPart{
-			Name: tokens[i],
-		}
-		i++
-		p.Operation = tokens[i]
-		i++
-		p.Value = tokens[i]
-
-		output.Parts = append(output.Parts, p)
-	}
-
-	return output, nil
 }
