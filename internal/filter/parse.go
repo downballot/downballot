@@ -85,6 +85,30 @@ func Parse(ctx context.Context, input string) (Clause, error) {
 						currentToken.Value += string(input[i])
 					}
 				}
+			case '(', ')':
+				if currentToken == nil {
+					currentToken = &Token{
+						Value: string(input[i]),
+					}
+					tokens = append(tokens, currentToken)
+
+					currentToken = nil
+				} else {
+					if currentToken.Quote == "" {
+						// End the current token.
+						tokens = append(tokens, currentToken)
+
+						currentToken = &Token{
+							Value: string(input[i]),
+						}
+						tokens = append(tokens, currentToken)
+
+						currentToken = nil
+					} else {
+						currentToken.Value += string(input[i])
+					}
+				}
+
 			case '"', '\'':
 				if currentToken == nil {
 					currentToken = &Token{
@@ -139,6 +163,10 @@ func ParseTokens(tokens []*Token) (Clause, error) {
 		}
 
 		if token.Quote == "" && strings.Compare(strings.ToLower(token.Value), "or") == 0 {
+			if len(output.Clauses) == 0 && len(andGroup.Clauses) == 0 {
+				return nil, fmt.Errorf("extra leading OR")
+			}
+
 			if len(andGroup.Clauses) > 0 {
 				output.Clauses = append(output.Clauses, andGroup)
 			}
@@ -147,6 +175,10 @@ func ParseTokens(tokens []*Token) (Clause, error) {
 		}
 
 		if token.Quote == "" && strings.Compare(strings.ToLower(token.Value), "and") == 0 {
+			if len(andGroup.Clauses) == 0 {
+				return nil, fmt.Errorf("extra leading AND")
+			}
+
 			token = tokens[0]
 			tokens = tokens[1:]
 		} else if len(andGroup.Clauses) > 0 {
@@ -174,6 +206,9 @@ func ParseTokens(tokens []*Token) (Clause, error) {
 					continue
 				}
 				group = append(group, token)
+			}
+			if parens > 0 {
+				return nil, fmt.Errorf("mismatched parens: %d", parens)
 			}
 			clause, err := ParseTokens(group)
 			if err != nil {

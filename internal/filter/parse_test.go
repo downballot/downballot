@@ -43,6 +43,12 @@ func TestParseQuery(t *testing.T) {
 			canonical:   "'key 1' = 'value 1'",
 		},
 		{
+			description: "Quoted parens",
+			query:       "key1 = 'value (((1'",
+			success:     true,
+			canonical:   "key1 = 'value (((1'",
+		},
+		{
 			description: "Bogus operation",
 			query:       "key1 * value1",
 			success:     false,
@@ -59,16 +65,32 @@ func TestParseQuery(t *testing.T) {
 			canonical:   "(key1 = value1 AND key2 = value2)",
 		},
 		{
+			description: "Multiple AND conditions with extra parens",
+			query:       "(((key1 = value1 and key2 = value2)))",
+			success:     true,
+			canonical:   "(key1 = value1 AND key2 = value2)",
+		},
+		{
 			description: "Multiple AND conditions with quotes",
 			query:       "key1 = 'value \"1\"' and 'key 2' = \"value '2'\"",
 			success:     true,
 			canonical:   "(key1 = 'value \"1\"' AND 'key 2' = 'value \\'2\\'')",
 		},
 		{
+			description: "Extra leading AND",
+			query:       "and key1 = value1 and key2 = value2",
+			success:     false,
+		},
+		{
 			description: "Multiple OR conditions",
 			query:       "key1 = value1 or key2 = value2",
 			success:     true,
 			canonical:   "(key1 = value1 OR key2 = value2)",
+		},
+		{
+			description: "Extra leading OR",
+			query:       "or key1 = value1 or key2 = value2",
+			success:     false,
 		},
 		{
 			description: "AND OR grouping",
@@ -81,6 +103,16 @@ func TestParseQuery(t *testing.T) {
 			query:       "key1 = value1 and key2 = value2 or key3 = value3 and key4 = value4",
 			success:     true,
 			canonical:   "((key1 = value1 AND key2 = value2) OR (key3 = value3 AND key4 = value4))",
+		},
+		{
+			description: "Mismatched open paren",
+			query:       "key1 = value1 and (key2 = value2",
+			success:     false,
+		},
+		{
+			description: "Mismatched close paren",
+			query:       "key1 = value1 and )key2 = value2",
+			success:     false,
 		},
 	}
 	for rowIndex, row := range rows {
