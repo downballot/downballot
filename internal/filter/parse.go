@@ -48,8 +48,9 @@ func QuoteIfNecessary(input string) string {
 }
 
 type Token struct {
-	Value string
-	Quote string
+	Value  string
+	Quote  string
+	Symbol bool
 }
 
 func (t Token) String() string {
@@ -63,11 +64,10 @@ func (t Token) String() string {
 	return output
 }
 
-// Parse parses a string and returns a Clause.
-func Parse(ctx context.Context, input string) (Clause, error) {
+func Tokenize(input string) ([]*Token, error) {
 	input += "\n"
 
-	var tokens []*Token
+	tokens := []*Token{}
 	{
 		var currentToken *Token
 		for i := 0; i < len(input); i++ {
@@ -85,7 +85,7 @@ func Parse(ctx context.Context, input string) (Clause, error) {
 						currentToken.Value += string(input[i])
 					}
 				}
-			case '(', ')':
+			case '(', ')', '{', '}', '[', ']', ',', ';', '#':
 				if currentToken == nil {
 					currentToken = &Token{
 						Value: string(input[i]),
@@ -108,7 +108,25 @@ func Parse(ctx context.Context, input string) (Clause, error) {
 						currentToken.Value += string(input[i])
 					}
 				}
+			case '<', '>', '=', '-', '+', '/', '*', '&', '|', '%', '^':
+				if currentToken == nil {
+					currentToken = &Token{
+						Value:  string(input[i]),
+						Symbol: true,
+					}
+				} else {
+					if !currentToken.Symbol {
+						// End the current token.
+						tokens = append(tokens, currentToken)
 
+						currentToken = &Token{
+							Value:  string(input[i]),
+							Symbol: true,
+						}
+					} else {
+						currentToken.Value += string(input[i])
+					}
+				}
 			case '"', '\'':
 				if currentToken == nil {
 					currentToken = &Token{
@@ -127,6 +145,12 @@ func Parse(ctx context.Context, input string) (Clause, error) {
 					}
 				}
 			default:
+				if currentToken != nil && currentToken.Symbol {
+					// End the current token.
+					tokens = append(tokens, currentToken)
+
+					currentToken = nil
+				}
 				if currentToken == nil {
 					currentToken = &Token{}
 				}
@@ -136,6 +160,16 @@ func Parse(ctx context.Context, input string) (Clause, error) {
 		if currentToken != nil {
 			return nil, fmt.Errorf("incomlete token: %q", currentToken.Value)
 		}
+	}
+
+	return tokens, nil
+}
+
+// Parse parses a string and returns a Clause.
+func Parse(ctx context.Context, input string) (Clause, error) {
+	tokens, err := Tokenize(input)
+	if err != nil {
+		return nil, err
 	}
 
 	logrus.WithContext(ctx).Infof("Tokens: (%d)", len(tokens))
