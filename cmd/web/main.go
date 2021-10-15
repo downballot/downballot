@@ -194,7 +194,9 @@ func main() {
 	{
 		err := app.DB.AutoMigrate(
 			schema.Organization{},
+			schema.Group{},
 			schema.User{},
+			schema.UserGroupMap{},
 			schema.UserOrganizationMap{},
 			schema.Person{},
 			schema.PersonField{},

@@ -89,12 +89,36 @@ func (i *Instance) registerOrganization(request *restful.Request, response *rest
 		output.ID = fmt.Sprintf("%d", organization.ID)
 		output.Name = organization.Name
 
-		mapping := schema.UserOrganizationMap{
+		userOrganizationMapping := schema.UserOrganizationMap{
 			UserID:         owner.ID,
 			OrganizationID: organization.ID,
 		}
 		err = tx.Session(&gorm.Session{NewDB: true}).
-			Create(&mapping).
+			Create(&userOrganizationMapping).
+			Error
+		if err != nil {
+			logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
+			return err
+		}
+
+		group := schema.Group{
+			OrganizationID: organization.ID,
+			Name:           "Root",
+		}
+		err = tx.Session(&gorm.Session{NewDB: true}).
+			Create(&group).
+			Error
+		if err != nil {
+			logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
+			return err
+		}
+
+		userGroupMapping := schema.UserGroupMap{
+			UserID:  owner.ID,
+			GroupID: group.ID,
+		}
+		err = tx.Session(&gorm.Session{NewDB: true}).
+			Create(&userGroupMapping).
 			Error
 		if err != nil {
 			logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)

@@ -18,18 +18,20 @@ import (
 
 func (i *Instance) registerPersonEndpoints(ws *restful.WebService) {
 	ws.Route(
-		ws.POST("person/import").To(i.importPerson).
+		ws.POST("organization/{organization_id}/person/import").To(i.importPerson).
 			Doc(`Import a new set of persons`).
 			Notes(`This imports a new set of persons.`).
 			Do(i.doRequireAuthentication).
+			Param(restful.PathParameter("organization_id", "The organization ID.")).
 			Consumes("application/octet-stream").
 			Returns(http.StatusOK, "OK", downballotapi.ImportPersonResponse{}),
 	)
 	ws.Route(
-		ws.GET("person").To(i.listPersons).
+		ws.GET("organization/{organization_id}/person").To(i.listPersons).
 			Doc(`List the persons`).
 			Notes(`This lists the persons.`).
 			Do(i.doRequireAuthentication).
+			Param(restful.PathParameter("organization_id", "The organization ID.")).
 			Param(ws.QueryParameter("filter", "The filter to use")).
 			Returns(http.StatusOK, "OK", downballotapi.ListPersonsResponse{}),
 	)
@@ -37,6 +39,18 @@ func (i *Instance) registerPersonEndpoints(ws *restful.WebService) {
 
 func (i *Instance) importPerson(request *restful.Request, response *restful.Response) {
 	ctx := request.Request.Context()
+
+	organizationIDString := request.PathParameter("organization_id")
+	organization, err := getOrganizationForUser(i.App.DB, request.Attribute(AttributeUserID), organizationIDString)
+	if err != nil {
+		logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
+		WriteHeaderAndError(ctx, response, http.StatusInternalServerError, err)
+		return
+	}
+	if organization == nil {
+		WriteHeaderAndText(ctx, response, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
 
 	contents, err := ioutil.ReadAll(request.Request.Body)
 	if err != nil {
@@ -107,7 +121,9 @@ func (i *Instance) importPerson(request *restful.Request, response *restful.Resp
 			data["vf::"+name] = row[h]
 		}
 
-		person := &schema.Person{}
+		person := &schema.Person{
+			OrganizationID: organization.ID,
+		}
 		person.VoterID = data["::"+ColumnVoterID]
 		person.Fields = data
 
@@ -157,6 +173,18 @@ func (i *Instance) importPerson(request *restful.Request, response *restful.Resp
 func (i *Instance) listPersons(request *restful.Request, response *restful.Response) {
 	ctx := request.Request.Context()
 
+	organizationIDString := request.PathParameter("organization_id")
+	organization, err := getOrganizationForUser(i.App.DB, request.Attribute(AttributeUserID), organizationIDString)
+	if err != nil {
+		logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
+		WriteHeaderAndError(ctx, response, http.StatusInternalServerError, err)
+		return
+	}
+	if organization == nil {
+		WriteHeaderAndText(ctx, response, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
 	filterString := request.QueryParameter("filter")
 	logrus.WithContext(ctx).Infof("Filter string: %s", filterString)
 	clause, err := filter.Parse(ctx, filterString)
@@ -169,7 +197,7 @@ func (i *Instance) listPersons(request *restful.Request, response *restful.Respo
 	var persons []*schema.Person
 	query := i.App.DB.Session(&gorm.Session{NewDB: true})
 	if request.Attribute(AttributeUserID) != nil {
-		query = query.Where("organization_id IN (?)", i.App.DB.Session(&gorm.Session{NewDB: true}).Table(schema.UserOrganizationMap{}.TableName()).Select("id").Where("user_id = ?", request.Attribute(AttributeUserID)))
+		query = query.Where("organization_id = ?", organization.ID)
 	}
 	err = query.
 		Find(&persons).
@@ -203,6 +231,8 @@ func (i *Instance) listPersons(request *restful.Request, response *restful.Respo
 		for _, field := range fields {
 			o.Fields[field.Name] = field.Value
 		}
+
+		// TODO: Group filters
 
 		match, err := clause.Evaluate(o.Fields)
 		if err != nil {
