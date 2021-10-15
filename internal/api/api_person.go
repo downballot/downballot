@@ -208,6 +208,20 @@ func (i *Instance) listPersons(request *restful.Request, response *restful.Respo
 		return
 	}
 
+	hierarchies, err := getGroupHierarchiesForUser(i.App.DB, request.Attribute(AttributeUserID), organization.ID)
+	if err != nil {
+		logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
+		WriteHeaderAndError(ctx, response, http.StatusInternalServerError, err)
+		return
+	}
+	logrus.Infof("Hierarchies: (%d)", len(hierarchies))
+	for hierachyIndex, hierarchy := range hierarchies {
+		logrus.Infof("   [%d]: (%d)", hierachyIndex, len(hierarchy))
+		for _, group := range hierarchy {
+			logrus.Infof("      * %s", group.Name)
+		}
+	}
+
 	output := downballotapi.ListPersonsResponse{
 		Persons: []*downballotapi.Person{},
 	}
@@ -232,8 +246,41 @@ func (i *Instance) listPersons(request *restful.Request, response *restful.Respo
 			o.Fields[field.Name] = field.Value
 		}
 
-		// TODO: Group filters
+		// Handle the group filters (permissions).
+		hierarchiesMatch := false
+		for _, hierarchy := range hierarchies {
+			hierarchyMatch := true
 
+			for _, group := range hierarchy {
+				groupClause, err := filter.Parse(ctx, group.Filter)
+				if err != nil {
+					logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
+					WriteHeaderAndError(ctx, response, http.StatusBadRequest, err)
+					return
+				}
+
+				match, err := groupClause.Evaluate(o.Fields)
+				if err != nil {
+					logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
+					WriteHeaderAndError(ctx, response, http.StatusInternalServerError, err)
+					return
+				}
+				if !match {
+					hierarchyMatch = false
+					break
+				}
+			}
+
+			if hierarchyMatch {
+				hierarchiesMatch = true
+				break
+			}
+		}
+		if !hierarchiesMatch {
+			continue
+		}
+
+		// Handle the endpoint filter.
 		match, err := clause.Evaluate(o.Fields)
 		if err != nil {
 			logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
