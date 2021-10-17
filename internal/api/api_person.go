@@ -208,6 +208,23 @@ func (i *Instance) listPersons(request *restful.Request, response *restful.Respo
 		return
 	}
 
+	personFieldsMap := map[uint64][]*schema.PersonField{}
+	{
+		var fields []*schema.PersonField
+		err = i.App.DB.Session(&gorm.Session{NewDB: true}).
+			Where("person_id IN (SELECT id FROM person WHERE organization_id = ?)", organization.ID).
+			Find(&fields).
+			Error
+		if err != nil {
+			logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
+			WriteHeaderAndError(ctx, response, http.StatusInternalServerError, err)
+			return
+		}
+		for _, field := range fields {
+			personFieldsMap[field.PersonID] = append(personFieldsMap[field.PersonID], field)
+		}
+	}
+
 	hierarchies, err := getGroupHierarchiesForUser(i.App.DB, request.Attribute(AttributeUserID), organization.ID)
 	if err != nil {
 		logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
@@ -232,16 +249,7 @@ func (i *Instance) listPersons(request *restful.Request, response *restful.Respo
 			Fields:  map[string]string{},
 		}
 
-		var fields []*schema.PersonField
-		err = i.App.DB.Session(&gorm.Session{NewDB: true}).
-			Where("person_id = ?", person.ID).
-			Find(&fields).
-			Error
-		if err != nil {
-			logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
-			WriteHeaderAndError(ctx, response, http.StatusInternalServerError, err)
-			return
-		}
+		fields := personFieldsMap[person.ID]
 		for _, field := range fields {
 			o.Fields[field.Name] = field.Value
 		}
