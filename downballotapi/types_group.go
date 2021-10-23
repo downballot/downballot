@@ -15,9 +15,15 @@ type ListGroupsResponse struct {
 	Groups []*Group `json:"groups"`
 }
 
+// GetGroupResponse is the response from getting the group.
+type GetGroupResponse struct {
+	Group *Group `json:"group"`
+}
+
 // Group is a group.
 type Group struct {
 	ID       string `json:"id"`
 	ParentID string `json:"parent_id"`
 	Name     string `json:"name"`
+	Filter   string `json:"filter"`
 }

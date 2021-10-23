@@ -21,11 +21,19 @@ func getOrganizationForUser(db *gorm.DB, userID interface{}, organizationID inte
 	return organizations[0], nil
 }
 
-func getGroupsForUser(db *gorm.DB, userID interface{}, organizationID interface{}) ([]*schema.Group, error) {
+func getGroupsForUser(db *gorm.DB, userID interface{}, organizationID interface{}, filters map[string]interface{}) ([]*schema.Group, error) {
 	var groups []*schema.Group
-	err := db.Session(&gorm.Session{NewDB: true}).
+	query := db.Session(&gorm.Session{NewDB: true}).
 		Where("organization_id = ?", organizationID).
-		Where("id IN (SELECT group_id FROM user_group_map WHERE user_id = ?)", userID).
+		Where("id IN (SELECT group_id FROM user_group_map WHERE user_id = ?)", userID)
+	for key, value := range filters {
+		if value == nil {
+			query = query.Where(key + " IS NULL")
+		} else {
+			query = query.Where(key+" = ?", value)
+		}
+	}
+	err := query.
 		Find(&groups).
 		Error
 	if err != nil {
@@ -35,6 +43,9 @@ func getGroupsForUser(db *gorm.DB, userID interface{}, organizationID interface{
 }
 
 func getGroupHierarchiesForUser(db *gorm.DB, userID interface{}, organizationID interface{}) ([][]*schema.Group, error) {
+	// TODO: Get the list of all groups in the organization.  This will be the master lookup list.
+	// TODO: Get the list of groups for this particular user.  Do the logic based on them.
+
 	var groups []*schema.Group
 	err := db.Session(&gorm.Session{NewDB: true}).
 		Where("organization_id = ?", organizationID).
@@ -78,4 +89,24 @@ func getGroupHierarchiesForUser(db *gorm.DB, userID interface{}, organizationID 
 		hierarchies = append(hierarchies, hierarchy)
 	}
 	return hierarchies, nil
+}
+
+func getUsersForOrganization(db *gorm.DB, organizationID interface{}, filters map[string]interface{}) ([]*schema.User, error) {
+	var users []*schema.User
+	query := db.Session(&gorm.Session{NewDB: true}).
+		Where("id IN (SELECT DISTINCT user_id FROM user_organization_map WHERE organization_id = ?)", organizationID)
+	for key, value := range filters {
+		if value == nil {
+			query = query.Where(key + " IS NULL")
+		} else {
+			query = query.Where(key+" = ?", value)
+		}
+	}
+	err := query.
+		Find(&users).
+		Error
+	if err != nil {
+		return nil, err
+	}
+	return users, nil
 }

@@ -29,6 +29,15 @@ func (i *Instance) registerGroupEndpoints(ws *restful.WebService) {
 			Param(restful.PathParameter("organization_id", "The organization ID.")).
 			Returns(http.StatusOK, "OK", downballotapi.ListGroupsResponse{}),
 	)
+	ws.Route(
+		ws.GET("organization/{organization_id}/group/{id}").To(i.getGroup).
+			Doc(`Get the group`).
+			Notes(`This gets the group.`).
+			Do(i.doRequireAuthentication).
+			Param(restful.PathParameter("organization_id", "The organization ID.")).
+			Param(restful.PathParameter("id", "The group ID.")).
+			Returns(http.StatusOK, "OK", downballotapi.GetGroupResponse{}),
+	)
 }
 
 func (i *Instance) createGroup(request *restful.Request, response *restful.Response) {
@@ -63,7 +72,7 @@ func (i *Instance) createGroup(request *restful.Request, response *restful.Respo
 		return
 	}
 
-	groups, err := getGroupsForUser(i.App.DB, request.Attribute(AttributeUserID), organizationIDString)
+	groups, err := getGroupsForUser(i.App.DB, request.Attribute(AttributeUserID), organizationIDString, nil)
 	if err != nil {
 		logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
 		WriteHeaderAndError(ctx, response, http.StatusInternalServerError, err)
@@ -93,7 +102,10 @@ func (i *Instance) createGroup(request *restful.Request, response *restful.Respo
 	}
 
 	group := schema.Group{
-		Name: input.Name,
+		OrganizationID: organization.ID,
+		Name:           input.Name,
+		ParentID:       &parentGroup.ID,
+		Filter:         input.Filter,
 	}
 
 	output := downballotapi.CreateGroupResponse{
@@ -109,8 +121,11 @@ func (i *Instance) createGroup(request *restful.Request, response *restful.Respo
 		}
 
 		output.ID = fmt.Sprintf("%d", group.ID)
-		output.ParentID = fmt.Sprintf("%d", group.ParentID)
+		if group.ParentID != nil {
+			output.ParentID = fmt.Sprintf("%d", *group.ParentID)
+		}
 		output.Name = group.Name
+		output.Filter = input.Filter
 
 		userGroupMapping := schema.UserGroupMap{
 			UserID:  owner.ID,
@@ -150,7 +165,7 @@ func (i *Instance) listGroups(request *restful.Request, response *restful.Respon
 		return
 	}
 
-	groups, err := getGroupsForUser(i.App.DB, request.Attribute(AttributeUserID), organizationIDString)
+	groups, err := getGroupsForUser(i.App.DB, request.Attribute(AttributeUserID), organizationIDString, nil)
 	if err != nil {
 		logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
 		WriteHeaderAndError(ctx, response, http.StatusInternalServerError, err)
@@ -166,9 +181,57 @@ func (i *Instance) listGroups(request *restful.Request, response *restful.Respon
 			Name: group.Name,
 		}
 		if group.ParentID != nil {
-			o.ParentID = fmt.Sprintf("%d", group.ParentID)
+			o.ParentID = fmt.Sprintf("%d", *group.ParentID)
 		}
 		output.Groups = append(output.Groups, o)
 	}
+	WriteEntity(ctx, response, output)
+}
+
+func (i *Instance) getGroup(request *restful.Request, response *restful.Response) {
+	ctx := request.Request.Context()
+
+	organizationIDString := request.PathParameter("organization_id")
+	organization, err := getOrganizationForUser(i.App.DB, request.Attribute(AttributeUserID), organizationIDString)
+	if err != nil {
+		logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
+		WriteHeaderAndError(ctx, response, http.StatusInternalServerError, err)
+		return
+	}
+	if organization == nil {
+		WriteHeaderAndText(ctx, response, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	groupIDString := request.PathParameter("id")
+
+	filters := map[string]interface{}{}
+	if groupIDString == "root" {
+		filters["parent_id"] = nil
+	} else {
+		filters["id"] = groupIDString
+	}
+	groups, err := getGroupsForUser(i.App.DB, request.Attribute(AttributeUserID), organizationIDString, filters)
+	if err != nil {
+		logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
+		WriteHeaderAndError(ctx, response, http.StatusInternalServerError, err)
+		return
+	}
+	if len(groups) == 0 {
+		WriteHeaderAndText(ctx, response, http.StatusNotFound, "Not found")
+		return
+	}
+
+	output := downballotapi.GetGroupResponse{}
+	group := groups[0]
+	o := &downballotapi.Group{
+		ID:   fmt.Sprintf("%d", group.ID),
+		Name: group.Name,
+	}
+	if group.ParentID != nil {
+		o.ParentID = fmt.Sprintf("%d", *group.ParentID)
+	}
+	output.Group = o
+
 	WriteEntity(ctx, response, output)
 }

@@ -21,7 +21,7 @@ func (i *Instance) registerUserEndpoints(ws *restful.WebService) {
 			Returns(http.StatusOK, "OK", downballotapi.RegisterUserResponse{}),
 	)
 	ws.Route(
-		ws.GET("user").To(i.listUsers).
+		ws.GET("organization/{organization_id}/user").To(i.listUsers).
 			Doc(`List the users`).
 			Notes(`This lists the users.`).
 			Do(i.doRequireAuthentication).
@@ -104,8 +104,21 @@ func (i *Instance) registerUser(request *restful.Request, response *restful.Resp
 func (i *Instance) listUsers(request *restful.Request, response *restful.Response) {
 	ctx := request.Request.Context()
 
+	organizationIDString := request.PathParameter("organization_id")
+	organization, err := getOrganizationForUser(i.App.DB, request.Attribute(AttributeUserID), organizationIDString)
+	if err != nil {
+		logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
+		WriteHeaderAndError(ctx, response, http.StatusInternalServerError, err)
+		return
+	}
+	if organization == nil {
+		WriteHeaderAndText(ctx, response, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
 	var users []*schema.User
-	err := i.App.DB.Session(&gorm.Session{NewDB: true}).
+	err = i.App.DB.Session(&gorm.Session{NewDB: true}).
+		Where("id IN (SELECT user_id FROM user_organization_map WHERE organization_id = ?)", organization.ID).
 		Find(&users).
 		Error
 	if err != nil {

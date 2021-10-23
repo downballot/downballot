@@ -172,9 +172,9 @@ func Parse(ctx context.Context, input string) (Clause, error) {
 		return nil, err
 	}
 
-	logrus.WithContext(ctx).Infof("Tokens: (%d)", len(tokens))
+	logrus.WithContext(ctx).Debugf("Tokens: (%d)", len(tokens))
 	for _, token := range tokens {
-		logrus.WithContext(ctx).Infof("* %s (quoted: %t)", token.Value, token.Quote != "")
+		logrus.WithContext(ctx).Debugf("* %s (quoted: %t)", token.Value, token.Quote != "")
 	}
 
 	clause, err := ParseTokens(tokens)
