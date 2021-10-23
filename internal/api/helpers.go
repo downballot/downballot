@@ -43,37 +43,42 @@ func getGroupsForUser(db *gorm.DB, userID interface{}, organizationID interface{
 }
 
 func getGroupHierarchiesForUser(db *gorm.DB, userID interface{}, organizationID interface{}) ([][]*schema.Group, error) {
-	// TODO: Get the list of all groups in the organization.  This will be the master lookup list.
-	// TODO: Get the list of groups for this particular user.  Do the logic based on them.
-
-	var groups []*schema.Group
-	err := db.Session(&gorm.Session{NewDB: true}).
-		Where("organization_id = ?", organizationID).
-		Where("id IN (SELECT group_id FROM user_group_map WHERE user_id = ?)", userID).
-		Find(&groups).
-		Error
-	if err != nil {
-		return nil, err
-	}
-
 	groupChildrenMap := map[uint64][]*schema.Group{}
 	groupsByID := map[uint64]*schema.Group{}
-	for _, group := range groups {
-		groupsByID[group.ID] = group
+	{
+		var groups []*schema.Group
+		err := db.Session(&gorm.Session{NewDB: true}).
+			Where("organization_id = ?", organizationID).
+			Find(&groups).
+			Error
+		if err != nil {
+			return nil, err
+		}
+		for _, group := range groups {
+			groupsByID[group.ID] = group
 
-		if group.ParentID != nil {
-			groupChildrenMap[*group.ParentID] = append(groupChildrenMap[*group.ParentID], group)
+			if group.ParentID != nil {
+				groupChildrenMap[*group.ParentID] = append(groupChildrenMap[*group.ParentID], group)
+			}
 		}
 	}
-	bottomLevelGroups := []*schema.Group{}
-	for _, group := range groups {
-		if len(groupChildrenMap[group.ID]) == 0 {
-			bottomLevelGroups = append(bottomLevelGroups, group)
+
+	userGroups := []*schema.Group{}
+	{
+		var groups []*schema.Group
+		err := db.Session(&gorm.Session{NewDB: true}).
+			Where("organization_id = ?", organizationID).
+			Where("id IN (SELECT group_id FROM user_group_map WHERE user_id = ?)", userID).
+			Find(&groups).
+			Error
+		if err != nil {
+			return nil, err
 		}
+		userGroups = append(userGroups, groups...)
 	}
 
 	hierarchies := [][]*schema.Group{}
-	for _, bottomLevelGroup := range bottomLevelGroups {
+	for _, bottomLevelGroup := range userGroups {
 		hierarchy := []*schema.Group{}
 
 		group := bottomLevelGroup
