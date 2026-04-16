@@ -3,7 +3,7 @@ package api
 import (
 	"bytes"
 	"context"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"sort"
 
@@ -32,9 +32,9 @@ func logRequest(ctx context.Context, r *http.Request, logBody bool) {
 
 	if logBody {
 		// Read the body.
-		contents, _ := ioutil.ReadAll(r.Body)
+		contents, _ := io.ReadAll(r.Body)
 		// Put the body back the way that we found it.
-		r.Body = ioutil.NopCloser(bytes.NewReader(contents))
+		r.Body = io.NopCloser(bytes.NewReader(contents))
 
 		logrus.WithContext(ctx).Infof("Body: (%d)", len(contents))
 		if len(contents) > 500 {

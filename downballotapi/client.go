@@ -15,9 +15,9 @@ type Client struct {
 }
 
 // New returns a new Client.
-func New(path string) *Client {
+func New(path string, options ...restapiclient.Option) *Client {
 	return &Client{
-		client: restapiclient.New(path),
+		client: restapiclient.New(path, options...),
 	}
 }
 

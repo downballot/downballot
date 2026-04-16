@@ -11,6 +11,7 @@ import (
 	"github.com/downballot/downballot/internal/application"
 	"github.com/downballot/downballot/internal/databasetest"
 	"github.com/stretchr/testify/require"
+	"github.com/tekkamanendless/restapiclient"
 	"gorm.io/gorm"
 )
 
@@ -67,5 +68,10 @@ func (s *Server) URL() string {
 // UnauthenticatedClient returns an unauthenticated REST client.
 func (s *Server) UnauthenticatedClient() *downballotapi.Client {
 	client := downballotapi.New(s.URL())
+	return client
+}
+
+func (s *Server) AuthenticatedClientMaster() *downballotapi.Client {
+	client := downballotapi.New(s.URL(), restapiclient.OptionHeader("Authorization", "Bearer my-master-token"))
 	return client
 }
