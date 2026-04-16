@@ -12,7 +12,6 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	"github.com/downballot/downballot/downballotapi"
 	"github.com/downballot/downballot/internal/apitoken"
-	"github.com/downballot/downballot/internal/appconfig"
 	"github.com/downballot/downballot/internal/application"
 	"github.com/downballot/downballot/internal/schema"
 	restfulspec "github.com/emicklei/go-restful-openapi/v2"
@@ -39,7 +38,7 @@ const DefaultPageSize = 25
 // Instance contains the local data for the API.
 type Instance struct {
 	App    *application.App // This is the application.
-	Config appconfig.Config // This is the full configuration.
+	Config Config           // This is the full configuration.
 
 	jwtSecret     []byte          // This is the JWT secret, if any.
 	jwtPublicKey  *rsa.PublicKey  // This is the JWT public key, if any.
@@ -166,6 +165,7 @@ func (i *Instance) Container() *restful.Container {
 		// Register the various endpoints.
 		i.registerAuthenticationEndpoints(ws)
 		i.registerGroupEndpoints(ws)
+		i.registerHealthEndpoints(ws)
 		i.registerPersonEndpoints(ws)
 		i.registerOrganizationEndpoints(ws)
 		i.registerUserEndpoints(ws)
@@ -326,7 +326,7 @@ func (i *Instance) requireAuthenticationFilter(required bool) func(request *rest
 				var user *schema.User
 				{
 					var users []*schema.User
-					err = i.App.DB.Session(&gorm.Session{NewDB: true}).
+					err = i.App.DB().Session(&gorm.Session{NewDB: true}).
 						Where("username = ?", claims.Email).
 						First(&users).
 						Error

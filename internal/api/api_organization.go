@@ -79,7 +79,7 @@ func (i *Instance) registerOrganization(request *restful.Request, response *rest
 	}
 
 	var owner schema.User
-	err = i.App.DB.Session(&gorm.Session{NewDB: true}).
+	err = i.App.DB().Session(&gorm.Session{NewDB: true}).
 		Where("id = ?", input.OwnerID).
 		First(&owner).
 		Error
@@ -96,7 +96,7 @@ func (i *Instance) registerOrganization(request *restful.Request, response *rest
 	output := downballotapi.RegisterOrganizationResponse{
 		// TODO
 	}
-	err = i.App.DB.Transaction(func(tx *gorm.DB) error {
+	err = i.App.DB().Transaction(func(tx *gorm.DB) error {
 		err = tx.Session(&gorm.Session{NewDB: true}).
 			Create(&organization).
 			Error
@@ -158,9 +158,9 @@ func (i *Instance) listOrganizations(request *restful.Request, response *restful
 	ctx := request.Request.Context()
 
 	var organizations []*schema.Organization
-	query := i.App.DB.Session(&gorm.Session{NewDB: true})
+	query := i.App.DB().Session(&gorm.Session{NewDB: true})
 	if request.Attribute(AttributeUserID) != nil {
-		query = query.Where("id IN (?)", i.App.DB.Session(&gorm.Session{NewDB: true}).Table(schema.UserOrganizationMap{}.TableName()).Select("id").Where("user_id = ?", request.Attribute(AttributeUserID)))
+		query = query.Where("id IN (?)", i.App.DB().Session(&gorm.Session{NewDB: true}).Table(schema.UserOrganizationMap{}.TableName()).Select("id").Where("user_id = ?", request.Attribute(AttributeUserID)))
 	}
 	err := query.
 		Find(&organizations).
@@ -188,7 +188,7 @@ func (i *Instance) addUserToOrganization(request *restful.Request, response *res
 	ctx := request.Request.Context()
 
 	organizationIDString := request.PathParameter("organization_id")
-	organization, err := getOrganizationForUser(i.App.DB, request.Attribute(AttributeUserID), organizationIDString)
+	organization, err := getOrganizationForUser(i.App.DB(), request.Attribute(AttributeUserID), organizationIDString)
 	if err != nil {
 		logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
 		WriteHeaderAndError(ctx, response, http.StatusInternalServerError, err)
@@ -213,7 +213,7 @@ func (i *Instance) addUserToOrganization(request *restful.Request, response *res
 	}
 
 	var user schema.User
-	err = i.App.DB.Session(&gorm.Session{NewDB: true}).
+	err = i.App.DB().Session(&gorm.Session{NewDB: true}).
 		Where("username = ?", input.Username).
 		First(&user).
 		Error
@@ -231,7 +231,7 @@ func (i *Instance) addUserToOrganization(request *restful.Request, response *res
 	output := downballotapi.AddUserToOrganizationResponse{
 		UserID: fmt.Sprintf("%d", user.ID),
 	}
-	err = i.App.DB.Transaction(func(tx *gorm.DB) error {
+	err = i.App.DB().Transaction(func(tx *gorm.DB) error {
 		err = tx.Session(&gorm.Session{NewDB: true}).
 			Create(&userOrganizationMapping).
 			Error
@@ -255,7 +255,7 @@ func (i *Instance) addUserToGroup(request *restful.Request, response *restful.Re
 	ctx := request.Request.Context()
 
 	organizationIDString := request.PathParameter("organization_id")
-	organization, err := getOrganizationForUser(i.App.DB, request.Attribute(AttributeUserID), organizationIDString)
+	organization, err := getOrganizationForUser(i.App.DB(), request.Attribute(AttributeUserID), organizationIDString)
 	if err != nil {
 		logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
 		WriteHeaderAndError(ctx, response, http.StatusInternalServerError, err)
@@ -269,7 +269,7 @@ func (i *Instance) addUserToGroup(request *restful.Request, response *restful.Re
 	userIDString := request.PathParameter("user_id")
 	var user *schema.User
 	{
-		users, err := getUsersForOrganization(i.App.DB, organization.ID, map[string]interface{}{"id": userIDString})
+		users, err := getUsersForOrganization(i.App.DB(), organization.ID, map[string]interface{}{"id": userIDString})
 		if err != nil {
 			logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
 			WriteHeaderAndError(ctx, response, http.StatusInternalServerError, err)
@@ -298,7 +298,7 @@ func (i *Instance) addUserToGroup(request *restful.Request, response *restful.Re
 	}
 	var group *schema.Group
 	{
-		groups, err := getGroupsForUser(i.App.DB, request.Attribute(AttributeUserID), organizationIDString, nil)
+		groups, err := getGroupsForUser(i.App.DB(), request.Attribute(AttributeUserID), organizationIDString, nil)
 		if err != nil {
 			logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
 			WriteHeaderAndError(ctx, response, http.StatusInternalServerError, err)
@@ -324,7 +324,7 @@ func (i *Instance) addUserToGroup(request *restful.Request, response *restful.Re
 	output := downballotapi.AddUserToGroupResponse{
 		GroupID: fmt.Sprintf("%d", group.ID),
 	}
-	err = i.App.DB.Transaction(func(tx *gorm.DB) error {
+	err = i.App.DB().Transaction(func(tx *gorm.DB) error {
 		err = tx.Session(&gorm.Session{NewDB: true}).
 			Create(&userGroupMapping).
 			Error

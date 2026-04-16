@@ -44,7 +44,7 @@ func (i *Instance) createGroup(request *restful.Request, response *restful.Respo
 	ctx := request.Request.Context()
 
 	organizationIDString := request.PathParameter("organization_id")
-	organization, err := getOrganizationForUser(i.App.DB, request.Attribute(AttributeUserID), organizationIDString)
+	organization, err := getOrganizationForUser(i.App.DB(), request.Attribute(AttributeUserID), organizationIDString)
 	if err != nil {
 		logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
 		WriteHeaderAndError(ctx, response, http.StatusInternalServerError, err)
@@ -72,7 +72,7 @@ func (i *Instance) createGroup(request *restful.Request, response *restful.Respo
 		return
 	}
 
-	groups, err := getGroupsForUser(i.App.DB, request.Attribute(AttributeUserID), organizationIDString, nil)
+	groups, err := getGroupsForUser(i.App.DB(), request.Attribute(AttributeUserID), organizationIDString, nil)
 	if err != nil {
 		logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
 		WriteHeaderAndError(ctx, response, http.StatusInternalServerError, err)
@@ -91,7 +91,7 @@ func (i *Instance) createGroup(request *restful.Request, response *restful.Respo
 	}
 
 	var owner schema.User
-	err = i.App.DB.Session(&gorm.Session{NewDB: true}).
+	err = i.App.DB().Session(&gorm.Session{NewDB: true}).
 		Where("id = ?", request.Attribute(AttributeUserID)).
 		First(&owner).
 		Error
@@ -111,7 +111,7 @@ func (i *Instance) createGroup(request *restful.Request, response *restful.Respo
 	output := downballotapi.CreateGroupResponse{
 		// TODO
 	}
-	err = i.App.DB.Transaction(func(tx *gorm.DB) error {
+	err = i.App.DB().Transaction(func(tx *gorm.DB) error {
 		err = tx.Session(&gorm.Session{NewDB: true}).
 			Create(&group).
 			Error
@@ -154,7 +154,7 @@ func (i *Instance) listGroups(request *restful.Request, response *restful.Respon
 	ctx := request.Request.Context()
 
 	organizationIDString := request.PathParameter("organization_id")
-	organization, err := getOrganizationForUser(i.App.DB, request.Attribute(AttributeUserID), organizationIDString)
+	organization, err := getOrganizationForUser(i.App.DB(), request.Attribute(AttributeUserID), organizationIDString)
 	if err != nil {
 		logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
 		WriteHeaderAndError(ctx, response, http.StatusInternalServerError, err)
@@ -165,7 +165,7 @@ func (i *Instance) listGroups(request *restful.Request, response *restful.Respon
 		return
 	}
 
-	groups, err := getGroupsForUser(i.App.DB, request.Attribute(AttributeUserID), organizationIDString, nil)
+	groups, err := getGroupsForUser(i.App.DB(), request.Attribute(AttributeUserID), organizationIDString, nil)
 	if err != nil {
 		logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
 		WriteHeaderAndError(ctx, response, http.StatusInternalServerError, err)
@@ -192,7 +192,7 @@ func (i *Instance) getGroup(request *restful.Request, response *restful.Response
 	ctx := request.Request.Context()
 
 	organizationIDString := request.PathParameter("organization_id")
-	organization, err := getOrganizationForUser(i.App.DB, request.Attribute(AttributeUserID), organizationIDString)
+	organization, err := getOrganizationForUser(i.App.DB(), request.Attribute(AttributeUserID), organizationIDString)
 	if err != nil {
 		logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
 		WriteHeaderAndError(ctx, response, http.StatusInternalServerError, err)
@@ -211,7 +211,7 @@ func (i *Instance) getGroup(request *restful.Request, response *restful.Response
 	} else {
 		filters["id"] = groupIDString
 	}
-	groups, err := getGroupsForUser(i.App.DB, request.Attribute(AttributeUserID), organizationIDString, filters)
+	groups, err := getGroupsForUser(i.App.DB(), request.Attribute(AttributeUserID), organizationIDString, filters)
 	if err != nil {
 		logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
 		WriteHeaderAndError(ctx, response, http.StatusInternalServerError, err)

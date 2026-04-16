@@ -41,7 +41,7 @@ func (i *Instance) importPerson(request *restful.Request, response *restful.Resp
 	ctx := request.Request.Context()
 
 	organizationIDString := request.PathParameter("organization_id")
-	organization, err := getOrganizationForUser(i.App.DB, request.Attribute(AttributeUserID), organizationIDString)
+	organization, err := getOrganizationForUser(i.App.DB(), request.Attribute(AttributeUserID), organizationIDString)
 	if err != nil {
 		logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
 		WriteHeaderAndError(ctx, response, http.StatusInternalServerError, err)
@@ -102,12 +102,18 @@ func (i *Instance) importPerson(request *restful.Request, response *restful.Resp
 	columnMap := map[string]string{
 		"County":                    ColumnCounty,
 		"Name-First":                ColumnNameFirst,
+		"Name_First":                ColumnNameFirst,
 		"Name-Middle":               ColumnNameMiddle,
+		"Name_Middle":               ColumnNameMiddle,
 		"Name-Last":                 ColumnNameLast,
+		"Name_Last":                 ColumnNameLast,
 		"Name-Suffix":               ColumnNameSuffix,
+		"Name_Suffix":               ColumnNameSuffix,
 		"Political Party":           ColumnPoliticalParty,
+		"Political_Party":           ColumnPoliticalParty,
 		"Res Addr-Development Name": ColumnResidentialAddressDevelopment,
 		"Voter ID":                  ColumnVoterID,
+		"Voter_ID":                  ColumnVoterID,
 	}
 
 	var persons []*schema.Person
@@ -121,6 +127,10 @@ func (i *Instance) importPerson(request *restful.Request, response *restful.Resp
 			data["vf::"+name] = row[h]
 		}
 
+		// Build the address.
+
+		// Build the mailing address.
+
 		person := &schema.Person{
 			OrganizationID: organization.ID,
 		}
@@ -133,7 +143,7 @@ func (i *Instance) importPerson(request *restful.Request, response *restful.Resp
 	output := downballotapi.ImportPersonResponse{
 		Records: uint64(len(persons)),
 	}
-	err = i.App.DB.Transaction(func(tx *gorm.DB) error {
+	err = i.App.DB().Transaction(func(tx *gorm.DB) error {
 		err := tx.Session(&gorm.Session{NewDB: true}).
 			Create(&persons).
 			Error
@@ -174,7 +184,7 @@ func (i *Instance) listPersons(request *restful.Request, response *restful.Respo
 	ctx := request.Request.Context()
 
 	organizationIDString := request.PathParameter("organization_id")
-	organization, err := getOrganizationForUser(i.App.DB, request.Attribute(AttributeUserID), organizationIDString)
+	organization, err := getOrganizationForUser(i.App.DB(), request.Attribute(AttributeUserID), organizationIDString)
 	if err != nil {
 		logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
 		WriteHeaderAndError(ctx, response, http.StatusInternalServerError, err)
@@ -195,7 +205,7 @@ func (i *Instance) listPersons(request *restful.Request, response *restful.Respo
 	}
 
 	var persons []*schema.Person
-	query := i.App.DB.Session(&gorm.Session{NewDB: true})
+	query := i.App.DB().Session(&gorm.Session{NewDB: true})
 	if request.Attribute(AttributeUserID) != nil {
 		query = query.Where("organization_id = ?", organization.ID)
 	}
@@ -211,7 +221,7 @@ func (i *Instance) listPersons(request *restful.Request, response *restful.Respo
 	personFieldsMap := map[uint64][]*schema.PersonField{}
 	{
 		var fields []*schema.PersonField
-		err = i.App.DB.Session(&gorm.Session{NewDB: true}).
+		err = i.App.DB().Session(&gorm.Session{NewDB: true}).
 			Where("person_id IN (SELECT id FROM person WHERE organization_id = ?)", organization.ID).
 			Find(&fields).
 			Error
@@ -225,7 +235,7 @@ func (i *Instance) listPersons(request *restful.Request, response *restful.Respo
 		}
 	}
 
-	hierarchies, err := getGroupHierarchiesForUser(i.App.DB, request.Attribute(AttributeUserID), organization.ID)
+	hierarchies, err := getGroupHierarchiesForUser(i.App.DB(), request.Attribute(AttributeUserID), organization.ID)
 	if err != nil {
 		logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
 		WriteHeaderAndError(ctx, response, http.StatusInternalServerError, err)

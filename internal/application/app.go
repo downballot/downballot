@@ -9,12 +9,14 @@ import (
 // App is a structure that contains the relevant services.
 type App struct {
 	Cache *cache.Cache
-	DB    *gorm.DB
+	db    *gorm.DB
 }
 
 // New creates a new app.
-func New() *App {
-	a := &App{}
+func New(db *gorm.DB) *App {
+	a := &App{
+		db: db.Session(&gorm.Session{}),
+	}
 
 	var err error
 	a.Cache, err = cache.New(10 * 1000 * 1000) // Use 10MB as the maximum cache size.
@@ -24,4 +26,9 @@ func New() *App {
 	}
 
 	return a
+}
+
+// DB returns a fresh database handle.
+func (a *App) DB() *gorm.DB {
+	return a.db.Session(&gorm.Session{})
 }

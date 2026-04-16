@@ -18,7 +18,7 @@ import (
 	"github.com/downballot/downballot/internal/application"
 	"github.com/downballot/downballot/internal/database"
 	"github.com/downballot/downballot/internal/httpextra"
-	"github.com/downballot/downballot/internal/schema"
+	"github.com/downballot/downballot/internal/migrator"
 	"github.com/downballot/downballot/internal/slackhook"
 	"github.com/sirupsen/logrus"
 	"github.com/slack-go/slack"
@@ -185,31 +185,28 @@ func main() {
 		}
 	}
 
-	app := application.New()
-	app.DB, err = database.New(ctx, config.DatabaseDriver, config.DatabaseString)
+	db, err := database.New(ctx, config.DatabaseDriver, config.DatabaseString)
 	if err != nil {
-		logrus.Errorf("Could not connect to database: [%T] %v", err, err)
+		logrus.Errorf("Could not connect to database: %v", err)
 		os.Exit(1)
 	}
-	{
-		err := app.DB.AutoMigrate(
-			schema.Organization{},
-			schema.Group{},
-			schema.User{},
-			schema.UserGroupMap{},
-			schema.UserOrganizationMap{},
-			schema.Person{},
-			schema.PersonField{},
-		)
-		if err != nil {
-			logrus.Errorf("Could not auto-migrate database: [%T] %v", err, err)
-			os.Exit(1)
-		}
+
+	err = migrator.Migrate(db)
+	if err != nil {
+		logrus.Errorf("Could not migrate database: %v", err)
+		os.Exit(1)
 	}
+
+	app := application.New(db)
 
 	apiInstance := api.New()
 	apiInstance.App = app
-	apiInstance.Config = config
+	apiInstance.Config = api.Config{
+		JWTPrivateKey: config.JWTPrivateKey,
+		JWTPublicKey:  config.JWTPublicKey,
+		JWTSecret:     config.JWTSecret,
+		MasterToken:   config.MasterToken,
+	}
 
 	apiContainer := apiInstance.Container()
 

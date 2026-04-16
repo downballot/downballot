@@ -54,7 +54,7 @@ func (i *Instance) registerUser(request *restful.Request, response *restful.Resp
 
 	{
 		var testUsers []*schema.User
-		err = i.App.DB.Session(&gorm.Session{NewDB: true}).
+		err = i.App.DB().Session(&gorm.Session{NewDB: true}).
 			Where(map[string]interface{}{
 				"username": input.Username,
 			}).
@@ -79,8 +79,8 @@ func (i *Instance) registerUser(request *restful.Request, response *restful.Resp
 	output := downballotapi.RegisterUserResponse{
 		// TODO
 	}
-	err = i.App.DB.Transaction(func(tx *gorm.DB) error {
-		err = i.App.DB.Session(&gorm.Session{NewDB: true}).
+	err = i.App.DB().Transaction(func(tx *gorm.DB) error {
+		err = i.App.DB().Session(&gorm.Session{NewDB: true}).
 			Create(&user).
 			Error
 		if err != nil {
@@ -105,7 +105,7 @@ func (i *Instance) listUsers(request *restful.Request, response *restful.Respons
 	ctx := request.Request.Context()
 
 	organizationIDString := request.PathParameter("organization_id")
-	organization, err := getOrganizationForUser(i.App.DB, request.Attribute(AttributeUserID), organizationIDString)
+	organization, err := getOrganizationForUser(i.App.DB(), request.Attribute(AttributeUserID), organizationIDString)
 	if err != nil {
 		logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
 		WriteHeaderAndError(ctx, response, http.StatusInternalServerError, err)
@@ -117,7 +117,7 @@ func (i *Instance) listUsers(request *restful.Request, response *restful.Respons
 	}
 
 	var users []*schema.User
-	err = i.App.DB.Session(&gorm.Session{NewDB: true}).
+	err = i.App.DB().Session(&gorm.Session{NewDB: true}).
 		Where("id IN (SELECT user_id FROM user_organization_map WHERE organization_id = ?)", organization.ID).
 		Find(&users).
 		Error
