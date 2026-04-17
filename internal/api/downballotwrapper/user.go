@@ -20,7 +20,7 @@ type RequireAuthenticatedUser struct {
 
 const LocalMapAuthentication = "downballot.authentication"
 
-// init registers the custom ThreatMate user-related tags for `restfulwrapper`.
+// init registers the custom user-related tags for `restfulwrapper`.
 func init() {
 	restfulwrapper.Register("downballot.currentUserID", func(apiTagValue string, field reflect.StructField, info *restfulwrapper.RestfulFunctionInfo) (restfulwrapper.InputFieldFunction, error) {
 		requireAuthentication := false
