@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log/slog"
 	"net/http"
 	"net/http/pprof"
 	"os"
@@ -34,6 +35,10 @@ func main() {
 		logLevel, err := logrus.ParseLevel(value)
 		if err == nil {
 			logrus.SetLevel(logLevel)
+
+			if logLevel == logrus.DebugLevel {
+				slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})))
+			}
 		} else {
 			logrus.Warnf("Unknown log level: %q", value)
 		}

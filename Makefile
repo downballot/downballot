@@ -5,7 +5,7 @@ all:
 test:
 	go test ./...
 
-SWAGGER_UI_VERSION := v5.11.2
+SWAGGER_UI_VERSION := v5.32.4
 SWAGGER_UI_ZIP := bin/swagger-ui-$(SWAGGER_UI_VERSION).zip
 SWAGGER_UI_URL := https://github.com/swagger-api/swagger-ui/archive/refs/tags/$(SWAGGER_UI_VERSION).zip
 

@@ -11,6 +11,7 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/downballot/downballot/downballotapi"
+	"github.com/downballot/downballot/internal/api/downballotwrapper"
 	"github.com/downballot/downballot/internal/apitoken"
 	"github.com/downballot/downballot/internal/application"
 	"github.com/downballot/downballot/internal/schema"
@@ -18,8 +19,13 @@ import (
 	"github.com/emicklei/go-restful/v3"
 	"github.com/go-openapi/spec"
 	"github.com/sirupsen/logrus"
+	"github.com/threatmate/restfulwrapper"
 	"gorm.io/gorm"
 )
+
+type API struct {
+	App *application.App
+}
 
 // These are the attributes that are available as part of the request.
 const (
@@ -64,7 +70,7 @@ func WriteHeaderAndEntity(ctx context.Context, response *restful.Response, code 
 		return
 	}
 
-	envelope := downballotapi.Envelope{
+	envelope := downballotapi.RawEnvelope{
 		Success: true,
 		Message: "Okay",
 		Data:    payload,
@@ -87,7 +93,7 @@ func WriteHeaderAndError(ctx context.Context, response *restful.Response, code i
 
 // WriteHeaderAndText writes text with the given status code.
 func WriteHeaderAndText(ctx context.Context, response *restful.Response, code int, value string) {
-	envelope := downballotapi.Envelope{
+	envelope := downballotapi.RawEnvelope{
 		Success: false,
 		Message: value,
 	}
@@ -144,13 +150,12 @@ func (i *Instance) Container() *restful.Container {
 	// Register the documented endpoints.
 	var documentedWebServices []*restful.WebService
 	{
-		ws := new(restful.WebService)
-		ws.Path("/api/v1")
-		ws.Consumes(restful.MIME_JSON)
-		ws.Produces(restful.MIME_JSON)
+		ctx := context.TODO()
+		webService := restfulwrapper.WebService("/api/v1").
+			Consumes(restful.MIME_JSON).
+			Produces(restful.MIME_JSON)
 
-		// Set up a filter to catch panics and return a 500 error.
-		ws.Filter(func(req *restful.Request, resp *restful.Response, chain *restful.FilterChain) {
+		webService.WebService().Filter(func(req *restful.Request, resp *restful.Response, chain *restful.FilterChain) {
 			defer func() {
 				if r := recover(); r != nil {
 					logrus.WithContext(req.Request.Context()).Errorf("Recovered from panic: %v", r)
@@ -162,16 +167,35 @@ func (i *Instance) Container() *restful.Container {
 			chain.ProcessFilter(req, resp)
 		})
 
-		// Register the various endpoints.
-		i.registerAuthenticationEndpoints(ws)
-		i.registerGroupEndpoints(ws)
-		i.registerHealthEndpoints(ws)
-		i.registerPersonEndpoints(ws)
-		i.registerOrganizationEndpoints(ws)
-		i.registerUserEndpoints(ws)
+		webService.ErrorHandler(func(err error) error {
+			// Wrap the error so that it uses our envelope.
+			return downballotwrapper.Error(err)
+		})
 
-		container.Add(ws)
-		documentedWebServices = append(documentedWebServices, ws)
+		{
+			middlewareConfig := downballotwrapper.Config{
+				DB:          i.App.DB(),
+				JWTSecret:   []byte(i.Config.JWTSecret),
+				SystemToken: i.Config.MasterToken,
+			}
+
+			session := webService.Session().
+				Attributes(middlewareConfig.Attributes()).
+				Do(middlewareConfig.Do())
+			session.Register(ctx, "/", &API{
+				App: i.App,
+			})
+		}
+
+		// Register the various endpoints.
+		i.registerAuthenticationEndpoints(webService.WebService())
+		i.registerGroupEndpoints(webService.WebService())
+		i.registerPersonEndpoints(webService.WebService())
+		i.registerOrganizationEndpoints(webService.WebService())
+
+		documentedWebServices = append(documentedWebServices, webService.WebService())
+
+		container.Add(webService.WebService())
 	}
 
 	container.ServiceErrorHandler(func(serviceError restful.ServiceError, request *restful.Request, response *restful.Response) {
@@ -220,30 +244,6 @@ func (i *Instance) Container() *restful.Container {
 	return container
 }
 
-// ValidateToken validates an API token (from a string) and returns the token's claims,
-// which can be used to learn more about the user.
-//
-// If the token has expired, then this fails with an error.
-func (i *Instance) ValidateToken(tokenString string) (apitoken.TokenClaims, error) {
-	var claims apitoken.TokenClaims
-	_, err := jwt.ParseWithClaims(tokenString, &claims,
-		func(t *jwt.Token) (interface{}, error) {
-			if i.jwtSecret != nil {
-				return i.jwtSecret, nil
-			}
-			if i.jwtPublicKey != nil {
-				return i.jwtPublicKey, nil
-			}
-			return jwt.UnsafeAllowNoneSignatureType, nil
-		},
-	)
-	if err != nil {
-		return claims, fmt.Errorf("could not parse token: %v", err)
-	}
-
-	return claims, nil
-}
-
 // doRequireAuthentication can be used as a restful.RouteBuilder `Do` argument to require authentication.
 //
 // This will set the required headers and return failure modes.
@@ -279,6 +279,30 @@ func (i *Instance) doRequireSystemAdministrator(builder *restful.RouteBuilder) {
 		Returns(http.StatusUnauthorized, "Forbidden", nil)
 }
 
+// validateToken validates an API token (from a string) and returns the token's claims,
+// which can be used to learn more about the user.
+//
+// If the token has expired, then this fails with an error.
+func (i *Instance) validateToken(tokenString string) (apitoken.TokenClaims, error) {
+	var claims apitoken.TokenClaims
+	_, err := jwt.ParseWithClaims(tokenString, &claims,
+		func(t *jwt.Token) (interface{}, error) {
+			if i.jwtSecret != nil {
+				return i.jwtSecret, nil
+			}
+			if i.jwtPublicKey != nil {
+				return i.jwtPublicKey, nil
+			}
+			return jwt.UnsafeAllowNoneSignatureType, nil
+		},
+	)
+	if err != nil {
+		return claims, fmt.Errorf("could not parse token: %v", err)
+	}
+
+	return claims, nil
+}
+
 // requireAuthenticationFilter is a `restful` filter that ensures that the user is authenticated.
 //
 // If `required` is true, then this will fail with a 401 error if no authentication was given.
@@ -312,7 +336,7 @@ func (i *Instance) requireAuthenticationFilter(required bool) func(request *rest
 				request.SetAttribute(AttributeLoggedIn, true)
 				request.SetAttribute(AttributeSystemAdmin, true)
 			} else {
-				claims, err := i.ValidateToken(token)
+				claims, err := i.validateToken(token)
 				if err != nil {
 					logrus.WithContext(request.Request.Context()).Infof("[auth] Invalid token: %v", err)
 					WriteHeaderAndText(ctx, response, http.StatusUnauthorized, "Invalid token")
