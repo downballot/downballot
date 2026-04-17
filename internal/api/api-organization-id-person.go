@@ -156,12 +156,11 @@ func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrgan
 type GetOrganizationIDPersonMetadata struct {
 	restfulwrapper.HTTPMethodGET
 	downballotwrapper.RequireAuthenticatedUser
-	_              string                            `api:"httppath:/organization/{organization_id}/person"`
-	_              string                            `api:"doc" description:"List the persons."`
-	_              string                            `api:"notes" description:"This lists the persons."`
-	Body           downballotapi.RegisterUserRequest `api:"body"`
-	OrganizationID string                            `api:"path:organization_id"`
-	Filter         string                            `api:"query:filter"`
+	_              string `api:"httppath:/organization/{organization_id}/person"`
+	_              string `api:"doc" description:"List the persons."`
+	_              string `api:"notes" description:"This lists the persons."`
+	OrganizationID string `api:"path:organization_id"`
+	Filter         string `api:"query:filter"`
 }
 
 func (a *API) GetOrganizationIDPerson(ctx context.Context, meta GetOrganizationIDPersonMetadata) (output downballotapi.Envelope[downballotapi.ListPersonsResponse], err error) {

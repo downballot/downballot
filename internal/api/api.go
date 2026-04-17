@@ -175,8 +175,10 @@ func (i *Instance) Container() *restful.Container {
 		{
 			middlewareConfig := downballotwrapper.Config{
 				DB:          i.App.DB(),
-				JWTSecret:   []byte(i.Config.JWTSecret),
 				SystemToken: i.Config.MasterToken,
+			}
+			if i.Config.JWTSecret != "" {
+				middlewareConfig.JWTSecret = []byte(i.Config.JWTSecret)
 			}
 
 			session := webService.Session().
@@ -190,7 +192,6 @@ func (i *Instance) Container() *restful.Container {
 		// Register the various endpoints.
 		i.registerAuthenticationEndpoints(webService.WebService())
 		i.registerGroupEndpoints(webService.WebService())
-		i.registerOrganizationEndpoints(webService.WebService())
 
 		documentedWebServices = append(documentedWebServices, webService.WebService())
 
