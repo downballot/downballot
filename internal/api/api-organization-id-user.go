@@ -22,7 +22,7 @@ type GetOrganizationIDUserMetadata struct {
 }
 
 func (a *API) GetOrganizationIDUser(ctx context.Context, meta GetOrganizationIDUserMetadata) (output downballotapi.Envelope[downballotapi.ListUsersResponse], err error) {
-	organization, err := getOrganizationForUser(a.App.DB(), meta.CurrentUserID, meta.OrganizationID)
+	organization, err := getOrganizationForUser(a.App.DB(), meta.CurrentUser.ID, meta.OrganizationID)
 	if err != nil {
 		return output, fmt.Errorf("could not get organization: %w", err)
 	}
@@ -64,7 +64,7 @@ type PostOrganizationIDUserMetadata struct {
 }
 
 func (a *API) PostOrganizationIDUser(ctx context.Context, meta PostOrganizationIDUserMetadata) (output downballotapi.Envelope[downballotapi.AddUserToOrganizationResponse], err error) {
-	organization, err := getOrganizationForUser(a.App.DB(), meta.CurrentUserID, meta.OrganizationID)
+	organization, err := getOrganizationForUser(a.App.DB(), meta.CurrentUser.ID, meta.OrganizationID)
 	if err != nil {
 		return output, err
 	}

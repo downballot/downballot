@@ -26,14 +26,14 @@ func (a *API) PostOrganizationRegister(ctx context.Context, meta PostOrganizatio
 		return output, restfulwrapper.NewAPIBodyError(fmt.Errorf("missing name"))
 	}
 	if meta.Body.OwnerID == "" {
-		if meta.CurrentUserID == "0" {
+		if meta.CurrentUser.ID == "0" {
 			return output, restfulwrapper.NewAPIBodyError(fmt.Errorf("missing owner_id"))
 		}
-		meta.Body.OwnerID = meta.CurrentUserID
+		meta.Body.OwnerID = meta.CurrentUser.ID
 		logrus.WithContext(ctx).Infof("No owner ID given; using current user: %s", meta.Body.OwnerID)
 	}
-	if meta.Body.OwnerID != "" && meta.CurrentUserID != "0" {
-		if meta.CurrentUserID != meta.Body.OwnerID {
+	if meta.Body.OwnerID != "" && meta.CurrentUser.ID != "0" {
+		if meta.CurrentUser.ID != meta.Body.OwnerID {
 			return output, restfulwrapper.NewAPIBodyError(fmt.Errorf("mismatched owner_id"))
 		}
 	}

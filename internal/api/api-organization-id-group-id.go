@@ -21,7 +21,7 @@ type GetOrganizationIDGroupIDMetadata struct {
 }
 
 func (a *API) GetOrganizationIDGroupID(ctx context.Context, meta GetOrganizationIDGroupIDMetadata) (output downballotapi.Envelope[downballotapi.GetGroupResponse], err error) {
-	organization, err := getOrganizationForUser(a.App.DB(), meta.CurrentUserID, meta.OrganizationID)
+	organization, err := getOrganizationForUser(a.App.DB(), meta.CurrentUser.ID, meta.OrganizationID)
 	if err != nil {
 		return output, err
 	}
@@ -35,7 +35,7 @@ func (a *API) GetOrganizationIDGroupID(ctx context.Context, meta GetOrganization
 	} else {
 		filters["id"] = meta.GroupID
 	}
-	groups, err := getGroupsForUser(a.App.DB(), meta.CurrentUserID, meta.OrganizationID, filters)
+	groups, err := getGroupsForUser(a.App.DB(), meta.CurrentUser.ID, meta.OrganizationID, filters)
 	if err != nil {
 		return output, err
 	}

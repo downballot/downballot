@@ -28,7 +28,7 @@ type PostOrganizationIDPersonImportMetadata struct {
 }
 
 func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrganizationIDPersonImportMetadata) (output downballotapi.Envelope[downballotapi.ImportPersonResponse], err error) {
-	organization, err := getOrganizationForUser(a.App.DB(), meta.CurrentUserID, meta.OrganizationID)
+	organization, err := getOrganizationForUser(a.App.DB(), meta.CurrentUser.ID, meta.OrganizationID)
 	if err != nil {
 		return output, err
 	}
@@ -164,7 +164,7 @@ type GetOrganizationIDPersonMetadata struct {
 }
 
 func (a *API) GetOrganizationIDPerson(ctx context.Context, meta GetOrganizationIDPersonMetadata) (output downballotapi.Envelope[downballotapi.ListPersonsResponse], err error) {
-	organization, err := getOrganizationForUser(a.App.DB(), meta.CurrentUserID, meta.OrganizationID)
+	organization, err := getOrganizationForUser(a.App.DB(), meta.CurrentUser.ID, meta.OrganizationID)
 	if err != nil {
 		return output, err
 	}
@@ -180,7 +180,7 @@ func (a *API) GetOrganizationIDPerson(ctx context.Context, meta GetOrganizationI
 
 	var persons []*schema.Person
 	query := a.App.DB().Session(&gorm.Session{NewDB: true})
-	if meta.CurrentUserID != "0" { // TODO: "0" is the system token.
+	if meta.CurrentUser.ID != "0" { // TODO: "0" is the system token.
 		query = query.Where("organization_id = ?", organization.ID)
 	}
 	err = query.
@@ -205,7 +205,7 @@ func (a *API) GetOrganizationIDPerson(ctx context.Context, meta GetOrganizationI
 		}
 	}
 
-	hierarchies, err := getGroupHierarchiesForUser(a.App.DB(), meta.CurrentUserID, organization.ID)
+	hierarchies, err := getGroupHierarchiesForUser(a.App.DB(), meta.CurrentUser.ID, organization.ID)
 	if err != nil {
 		return output, err
 	}

@@ -24,7 +24,7 @@ type PostOrganizationIDUserIDGroupMetadata struct {
 }
 
 func (a *API) PostOrganizationIDUserIDGroup(ctx context.Context, meta PostOrganizationIDUserIDGroupMetadata) (output downballotapi.Envelope[downballotapi.AddUserToGroupResponse], err error) {
-	organization, err := getOrganizationForUser(a.App.DB(), meta.CurrentUserID, meta.OrganizationID)
+	organization, err := getOrganizationForUser(a.App.DB(), meta.CurrentUser.ID, meta.OrganizationID)
 	if err != nil {
 		return output, err
 	}
@@ -51,7 +51,7 @@ func (a *API) PostOrganizationIDUserIDGroup(ctx context.Context, meta PostOrgani
 	}
 	var group *schema.Group
 	{
-		groups, err := getGroupsForUser(a.App.DB(), meta.CurrentUserID, meta.OrganizationID, nil)
+		groups, err := getGroupsForUser(a.App.DB(), meta.CurrentUser.ID, meta.OrganizationID, nil)
 		if err != nil {
 			return output, err
 		}

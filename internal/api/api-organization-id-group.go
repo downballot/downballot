@@ -23,7 +23,7 @@ type PostOrganizationIDGroupMetadata struct {
 }
 
 func (a *API) PostOrganizationIDGroup(ctx context.Context, meta PostOrganizationIDGroupMetadata) (output downballotapi.Envelope[downballotapi.CreateGroupResponse], err error) {
-	organization, err := getOrganizationForUser(a.App.DB(), meta.CurrentUserID, meta.OrganizationID)
+	organization, err := getOrganizationForUser(a.App.DB(), meta.CurrentUser.ID, meta.OrganizationID)
 	if err != nil {
 		return output, err
 	}
@@ -38,7 +38,7 @@ func (a *API) PostOrganizationIDGroup(ctx context.Context, meta PostOrganization
 		return output, restfulwrapper.NewAPIBodyError(fmt.Errorf("missing parent_id"))
 	}
 
-	groups, err := getGroupsForUser(a.App.DB(), meta.CurrentUserID, meta.OrganizationID, nil)
+	groups, err := getGroupsForUser(a.App.DB(), meta.CurrentUser.ID, meta.OrganizationID, nil)
 	if err != nil {
 		return output, err
 	}
@@ -55,7 +55,7 @@ func (a *API) PostOrganizationIDGroup(ctx context.Context, meta PostOrganization
 
 	var owner schema.User
 	err = a.App.DB().Session(&gorm.Session{NewDB: true}).
-		Where("id = ?", meta.CurrentUserID).
+		Where("id = ?", meta.CurrentUser.ID).
 		First(&owner).
 		Error
 	if err != nil {
@@ -114,7 +114,7 @@ type GetOrganizationIDGroupMetadata struct {
 }
 
 func (a *API) GetOrganizationIDGroup(ctx context.Context, meta GetOrganizationIDGroupMetadata) (output downballotapi.Envelope[downballotapi.ListGroupsResponse], err error) {
-	organization, err := getOrganizationForUser(a.App.DB(), meta.CurrentUserID, meta.OrganizationID)
+	organization, err := getOrganizationForUser(a.App.DB(), meta.CurrentUser.ID, meta.OrganizationID)
 	if err != nil {
 		return output, err
 	}
@@ -122,7 +122,7 @@ func (a *API) GetOrganizationIDGroup(ctx context.Context, meta GetOrganizationID
 		return output, restfulwrapper.NewAPIResponseError(http.StatusUnauthorized, "")
 	}
 
-	groups, err := getGroupsForUser(a.App.DB(), meta.CurrentUserID, meta.OrganizationID, nil)
+	groups, err := getGroupsForUser(a.App.DB(), meta.CurrentUser.ID, meta.OrganizationID, nil)
 	if err != nil {
 		return output, err
 	}

@@ -8,7 +8,6 @@ const (
 
 // Attribute constants.
 const (
-	attributeDatabase          = "database"
-	attributeUserID            = "user-id"
-	attributeUserIsSystemAdmin = "user-is-system-admin"
+	attributeDatabase = "database"
+	attributeUser     = "user"
 )

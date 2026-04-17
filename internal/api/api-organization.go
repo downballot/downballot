@@ -22,12 +22,12 @@ type GetOrganizationMetadata struct {
 func (a *API) GetOrganization(ctx context.Context, meta GetOrganizationMetadata) (output downballotapi.Envelope[downballotapi.ListOrganizationsResponse], err error) {
 	var organizations []*schema.Organization
 	query := a.App.DB().Session(&gorm.Session{NewDB: true})
-	if meta.CurrentUserID != "0" { // "0" is the system token.
+	if meta.CurrentUser.ID != "0" { // "0" is the system token.
 		query = query.
 			Where("id IN (?)", a.App.DB().Session(&gorm.Session{NewDB: true}).
 				Table(schema.UserOrganizationMap{}.TableName()).
 				Select("id").
-				Where("user_id = ?", meta.CurrentUserID),
+				Where("user_id = ?", meta.CurrentUser.ID),
 			)
 	}
 	err = query.

@@ -14,9 +14,21 @@ import (
 	"gorm.io/gorm"
 )
 
+type User struct {
+	ID           string
+	EmailAddress string
+	Name         string
+	SystemAdmin  bool
+}
+
 // RequireAuthenticatedUser requires an authenticated user.
 type RequireAuthenticatedUser struct {
-	CurrentUserID string `api:"downballot.currentUserID"`
+	CurrentUser User `api:"downballot.currentUserID"`
+}
+
+// MayHaveAuthenticatedUser may have an authenticated user.
+type MayHaveAuthenticatedUser struct {
+	CurrentUser *User `api:"downballot.currentUserID"`
 }
 
 const LocalMapAuthentication = "downballot.authentication"
@@ -26,9 +38,9 @@ func init() {
 	restfulwrapper.Register("downballot.currentUserID", func(apiTagValue string, field reflect.StructField, info *restfulwrapper.RestfulFunctionInfo) (restfulwrapper.InputFieldFunction, error) {
 		requireAuthentication := false
 		switch field.Type.String() {
-		case "string":
+		case "downballotwrapper.User":
 			requireAuthentication = true
-		case "*string":
+		case "*downballotwrapper.User":
 		default:
 			return nil, fmt.Errorf("bad type for field %s", field.Name)
 		}
@@ -41,23 +53,23 @@ func init() {
 		return func(v reflect.Value, req *restful.Request, metadataValue reflect.Value) error {
 			ctx := req.Request.Context()
 
-			userID, err := getUserIDFromRequest(req)
+			user, err := getUserFromRequest(req)
 			if err != nil {
 				slog.DebugContext(ctx, fmt.Sprintf("Could not get current user: %v", err))
 				switch v.Interface().(type) {
-				case string:
+				case User:
 					return restfulwrapper.NewAPIResponseError(http.StatusForbidden, "Forbidden")
-				case *string:
-					v.Set(reflect.ValueOf((*string)(nil)))
+				case *User:
+					v.Set(reflect.ValueOf((*User)(nil)))
 				default:
 					return restfulwrapper.NewAPIResponseError(http.StatusInternalServerError, fmt.Sprintf("Bad type for field %s", field.Name))
 				}
 			} else {
 				switch v.Interface().(type) {
-				case string:
-					v.Set(reflect.ValueOf(userID))
-				case *string:
-					v.Set(reflect.ValueOf(&userID))
+				case User:
+					v.Set(reflect.ValueOf(*user))
+				case *User:
+					v.Set(reflect.ValueOf(user))
 				default:
 					return restfulwrapper.NewAPIResponseError(http.StatusInternalServerError, fmt.Sprintf("Bad type for field %s", field.Name))
 				}
@@ -67,17 +79,17 @@ func init() {
 	})
 }
 
-// getUserIDFromRequest retrieves a user ID from the request.
-func getUserIDFromRequest(req *restful.Request) (string, error) {
-	rawValue := req.Attribute(attributeUserID)
+// getUserFromRequest retrieves a user ID from the request.
+func getUserFromRequest(req *restful.Request) (*User, error) {
+	rawValue := req.Attribute(attributeUser)
 	if rawValue == nil {
-		return "", fmt.Errorf("attribute missing: %s", attributeUserID)
+		return nil, fmt.Errorf("attribute missing: %s", attributeUser)
 	}
-	userID, ok := rawValue.(string)
+	user, ok := rawValue.(*User)
 	if !ok {
-		return "", fmt.Errorf("attribute has incorrect type %T: %s", rawValue, attributeUserID)
+		return nil, fmt.Errorf("attribute has incorrect type %T: %s", rawValue, attributeUser)
 	}
-	return userID, nil
+	return user, nil
 }
 
 // filterAppendUserInformation adds the user information to the request attributes.
@@ -94,7 +106,7 @@ func (c Config) filterAppendUserInformation(req *restful.Request, resp *restful.
 	// If the user is not authenticated, then the database will be the main database with no CTEs applied.
 	setDatabaseForRequest(req, db)
 
-	var user *userInformation
+	var user *User
 	{
 		var tokenString string
 
@@ -118,34 +130,25 @@ func (c Config) filterAppendUserInformation(req *restful.Request, resp *restful.
 		}
 	}
 
-	// If we didn't end up with a user, then we're done.
 	if user == nil {
 		slog.DebugContext(ctx, "We were not able to authenticate the user.")
-
-		req.SetAttribute(attributeUserID, "")
-		req.SetAttribute(attributeUserIsSystemAdmin, false)
-		return
+	} else {
+		slog.DebugContext(ctx, fmt.Sprintf("Authenticated user: %+v", *user))
 	}
 
-	slog.DebugContext(ctx, fmt.Sprintf("Authenticated user: %+v", *user))
-
-	req.SetAttribute(attributeUserID, user.ID)
-	req.SetAttribute(attributeUserIsSystemAdmin, user.SystemAdmin)
+	req.SetAttribute(attributeUser, user)
 
 	// Now that we have the user information, we can set the database in the request attributes.
 	setDatabaseForRequest(req, db)
 }
 
-type userInformation struct {
-	ID          string
-	SystemAdmin bool
-}
-
-func (c Config) findUserInformationFromToken(db *gorm.DB, tokenString string) (*userInformation, error) {
+func (c Config) findUserInformationFromToken(db *gorm.DB, tokenString string) (*User, error) {
 	if c.SystemToken != "" && tokenString == c.SystemToken {
-		return &userInformation{
-			ID:          "0",
-			SystemAdmin: true,
+		return &User{
+			ID:           "0",
+			EmailAddress: "@system",
+			Name:         "System User",
+			SystemAdmin:  true,
 		}, nil
 	}
 
@@ -168,9 +171,11 @@ func (c Config) findUserInformationFromToken(db *gorm.DB, tokenString string) (*
 	}
 	user := users[0]
 
-	return &userInformation{
-		ID:          fmt.Sprintf("%d", user.ID),
-		SystemAdmin: false,
+	return &User{
+		ID:           fmt.Sprintf("%d", user.ID),
+		EmailAddress: user.Username,
+		Name:         user.Name,
+		SystemAdmin:  false,
 	}, nil
 }
 
@@ -181,30 +186,35 @@ func doRequireAuthentication(requireAuthentication bool) func(routeBuilder *rest
 		routeBuilder.Returns(http.StatusUnauthorized, "Unauthorized", nil)
 		routeBuilder.Metadata(MetadataAuthBasic, true)  // Add auth metadata for the OpenAPI docs.
 		routeBuilder.Metadata(MetadataAuthBearer, true) // Add auth metadata for the OpenAPI docs.
-		routeBuilder.Filter(filterRequireAuthentication)
+		routeBuilder.Filter(filterRequireAuthentication(requireAuthentication))
 	}
 }
 
 // filterRequireAuthentication requires authentication.
-func filterRequireAuthentication(req *restful.Request, resp *restful.Response, chain *restful.FilterChain) {
-	ctx := req.Request.Context()
+func filterRequireAuthentication(requireAuthentication bool) func(req *restful.Request, resp *restful.Response, chain *restful.FilterChain) {
+	return func(req *restful.Request, resp *restful.Response, chain *restful.FilterChain) {
+		ctx := req.Request.Context()
 
-	userID, err := getUserIDFromRequest(req)
-	if err != nil {
-		wrappedError := wrappedError{
-			err: fmt.Errorf("could not get user ID from request: %w", err),
+		user, err := getUserFromRequest(req)
+		if err != nil {
+			wrappedError := wrappedError{
+				err: fmt.Errorf("could not get user ID from request: %w", err),
+			}
+			wrappedError.WriteError(resp)
+			return
 		}
-		wrappedError.WriteError(resp)
-		return
-	}
-	if userID == "" {
-		slog.InfoContext(ctx, "User ID not found in request; this request is not authenticated.")
-		wrappedError := wrappedError{
-			err: fmt.Errorf("%w", httperror.ErrStatusUnauthorized),
+
+		if requireAuthentication {
+			if user == nil {
+				slog.InfoContext(ctx, "User ID not found in request; this request is not authenticated.")
+				wrappedError := wrappedError{
+					err: fmt.Errorf("%w", httperror.ErrStatusUnauthorized),
+				}
+				wrappedError.WriteError(resp)
+				return
+			}
+			slog.DebugContext(ctx, fmt.Sprintf("Required authentication successful for user: %+v", user))
 		}
-		wrappedError.WriteError(resp)
-		return
+		chain.ProcessFilter(req, resp)
 	}
-	slog.DebugContext(ctx, fmt.Sprintf("Required authentication successful for user: %s", userID))
-	chain.ProcessFilter(req, resp)
 }

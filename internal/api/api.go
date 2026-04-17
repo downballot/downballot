@@ -25,6 +25,10 @@ import (
 
 type API struct {
 	App *application.App
+
+	jwtSecret     []byte          // This is the JWT secret, if any.
+	jwtPublicKey  *rsa.PublicKey  // This is the JWT public key, if any.
+	jwtPrivateKey *rsa.PrivateKey // This is the JWT private key, if any.
 }
 
 // These are the attributes that are available as part of the request.
@@ -185,12 +189,12 @@ func (i *Instance) Container() *restful.Container {
 				Attributes(middlewareConfig.Attributes()).
 				Do(middlewareConfig.Do())
 			session.Register(ctx, "/", &API{
-				App: i.App,
+				App:           i.App,
+				jwtSecret:     i.jwtSecret,
+				jwtPublicKey:  i.jwtPublicKey,
+				jwtPrivateKey: i.jwtPrivateKey,
 			})
 		}
-
-		// Register the various endpoints.
-		i.registerAuthenticationEndpoints(webService.WebService())
 
 		documentedWebServices = append(documentedWebServices, webService.WebService())
 
