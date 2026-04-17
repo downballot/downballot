@@ -66,11 +66,6 @@ func init() {
 	})
 }
 
-// setUserIDForRequest sets the user ID for the request.
-func setUserIDForRequest(req *restful.Request, userID string) {
-	req.SetAttribute(attributeUserID, userID)
-}
-
 // getUserIDFromRequest retrieves a user ID from the request.
 func getUserIDFromRequest(req *restful.Request) (string, error) {
 	rawValue := req.Attribute(attributeUserID)
@@ -112,17 +107,22 @@ func (c Config) filterAppendUserInformation(req *restful.Request, resp *restful.
 			}
 		}
 
-		slog.DebugContext(ctx, fmt.Sprintf("Found an API token: %s", tokenString))
-		var err error
-		user, err = c.findUserInformationFromToken(db, tokenString)
-		if err != nil {
-			slog.WarnContext(ctx, fmt.Sprintf("Could not find user from token: %v", err))
+		if tokenString != "" {
+			slog.DebugContext(ctx, fmt.Sprintf("Found an API token: %s", tokenString))
+			var err error
+			user, err = c.findUserInformationFromToken(db, tokenString)
+			if err != nil {
+				slog.WarnContext(ctx, fmt.Sprintf("Could not find user from token: %v", err))
+			}
 		}
 	}
 
 	// If we didn't end up with a user, then we're done.
 	if user == nil {
 		slog.DebugContext(ctx, "We were not able to authenticate the user.")
+
+		req.SetAttribute(attributeUserID, "")
+		req.SetAttribute(attributeUserIsSystemAdmin, false)
 		return
 	}
 

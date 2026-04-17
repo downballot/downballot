@@ -32,7 +32,7 @@ func (e *wrappedError) Error() string {
 
 func (e *wrappedError) WriteError(resp *restful.Response) {
 	type Output struct {
-		Type string `json:"type"`
+		Types []string `json:"types"`
 	}
 
 	code := http.StatusInternalServerError
@@ -46,9 +46,12 @@ func (e *wrappedError) WriteError(resp *restful.Response) {
 	content := downballotapi.Envelope[Output]{
 		Message: e.err.Error(),
 		Success: false,
-		Data: Output{
-			Type: fmt.Sprintf("%T", e.err),
-		},
+		Data:    Output{},
 	}
+	content.Data.Types = append(content.Data.Types, fmt.Sprintf("%T", e.err))
+	for nextError := errors.Unwrap(e.err); nextError != nil; nextError = errors.Unwrap(nextError) {
+		content.Data.Types = append(content.Data.Types, fmt.Sprintf("%T", nextError))
+	}
+
 	resp.WriteHeaderAndEntity(code, content)
 }
