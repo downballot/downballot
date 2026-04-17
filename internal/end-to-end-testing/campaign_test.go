@@ -2,12 +2,14 @@ package endtoendtesting
 
 import (
 	"net/http"
+	"os"
 	"testing"
 
 	"github.com/downballot/downballot/downballotapi"
 	"github.com/downballot/downballot/internal/applicationtest"
 	"github.com/downballot/downballot/internal/testutils"
 	"github.com/stretchr/testify/require"
+	"github.com/tekkamanendless/restapiclient"
 )
 
 func TestCampaign(t *testing.T) {
@@ -60,7 +62,7 @@ func TestCampaign(t *testing.T) {
 			Password: adminPassword,
 		}
 		var output downballotapi.RegisterUserResponse
-		err := application.UnauthenticatedClient().Do(ctx, http.MethodPost, "/api/v1/user/register", input, output)
+		err := application.AuthenticatedClientMaster().Do(ctx, http.MethodPost, "/api/v1/user/register", input, &output)
 		require.NoError(t, err)
 		adminUserId = output.ID
 		t.Logf("User ID: %s", adminUserId)
@@ -74,7 +76,7 @@ func TestCampaign(t *testing.T) {
 			Password: user1Password,
 		}
 		var output downballotapi.RegisterUserResponse
-		err := application.UnauthenticatedClient().Do(ctx, http.MethodPost, "/api/v1/user/register", input, output)
+		err := application.AuthenticatedClientMaster().Do(ctx, http.MethodPost, "/api/v1/user/register", input, &output)
 		require.NoError(t, err)
 		user1Id = output.ID
 		t.Logf("User 1 ID: %s", user1Id)
@@ -88,7 +90,7 @@ func TestCampaign(t *testing.T) {
 			Password: user2Password,
 		}
 		var output downballotapi.RegisterUserResponse
-		err := application.UnauthenticatedClient().Do(ctx, http.MethodPost, "/api/v1/user/register", input, output)
+		err := application.AuthenticatedClientMaster().Do(ctx, http.MethodPost, "/api/v1/user/register", input, &output)
 		require.NoError(t, err)
 		user2Id = output.ID
 		t.Logf("User 2 ID: %s", user2Id)
@@ -139,7 +141,7 @@ func TestCampaign(t *testing.T) {
 	t.Log("Get the root group ID.")
 	{
 		var output downballotapi.GetGroupResponse
-		err := adminClient.Do(ctx, http.MethodPost, "/api/v1/organization/"+organizationId+"/group/root", nil, &output)
+		err := adminClient.Do(ctx, http.MethodGet, "/api/v1/organization/"+organizationId+"/group/root", nil, &output)
 		require.NoError(t, err)
 		rootGroupId = output.Group.ID
 		t.Logf("Root group ID: %s", rootGroupId)
@@ -187,13 +189,15 @@ func TestCampaign(t *testing.T) {
 		t.Logf("Persons: %v", output.Persons)
 	}
 
-	/*
-									   t.Log( "Import the voter file as the admin user.")
-		{
-									   err := XXXXClient.Do(ctx, http.MethodPost, "/api/v1/organization/" + organizationId + "/person/import" -H "Authorization: Bearer ${adminToken}" -X POST -H "Content-Type: application/octet-stream" --data-binary "@de_voter_reg.small.csv" )
-									   t.Logf("Persons: %v", output.Persons)
-		}
-	*/
+	t.Log("Import the voter file as the admin user.")
+	{
+		input, err := os.ReadFile("../../test/de_voter_reg.small.csv")
+		require.NoError(t, err)
+		var output downballotapi.ImportPersonResponse
+		err = adminClient.Do(ctx, http.MethodPost, "/api/v1/organization/"+organizationId+"/person/import", restapiclient.RawBytes(input), &output, restapiclient.OptionHeader("Content-Type", "application/octet-stream"))
+		require.NoError(t, err)
+		t.Logf("Persons: %v", output.Records)
+	}
 
 	t.Log("List all persons named Charls with 'whit' in the last name as the admin user.")
 	{
@@ -206,8 +210,9 @@ func TestCampaign(t *testing.T) {
 	t.Logf("Create group 1 %q matching: %q", group1Name, group2Filter)
 	{
 		input := downballotapi.CreateGroupRequest{
-			Name:   group1Name,
-			Filter: group1Filter,
+			ParentID: rootGroupId,
+			Name:     group1Name,
+			Filter:   group1Filter,
 		}
 		var output downballotapi.CreateGroupResponse
 		err := adminClient.Do(ctx, http.MethodPost, "/api/v1/organization/"+organizationId+"/group", input, &output)
@@ -219,8 +224,9 @@ func TestCampaign(t *testing.T) {
 	t.Logf("Create group 2 %q matching: %q", group2Name, group2Filter)
 	{
 		input := downballotapi.CreateGroupRequest{
-			Name:   group2Name,
-			Filter: group2Filter,
+			ParentID: rootGroupId,
+			Name:     group2Name,
+			Filter:   group2Filter,
 		}
 		var output downballotapi.CreateGroupResponse
 		err := adminClient.Do(ctx, http.MethodPost, "/api/v1/organization/"+organizationId+"/group", input, &output)
@@ -229,33 +235,37 @@ func TestCampaign(t *testing.T) {
 		t.Logf("Group 2 ID: %s", group2Id)
 	}
 
-	/*
-									   t.Log( "Add user 1 to group 1.")
-		{
-									   payload=$( jq -n '{ "group_id": $group_id }' --arg group_id "${group1Id}" )
-									   err := adminClient.Do(ctx, http.MethodPost, "/api/v1/organization/" + organizationId + "/user/${user1Id}/group", input, &output)
-										require.NoError(t, err)
+	t.Log("Add user 1 to group 1.")
+	{
+		input := downballotapi.AddUserToGroupRequest{
+			GroupID: group1Id,
 		}
+		err := adminClient.Do(ctx, http.MethodPost, "/api/v1/organization/"+organizationId+"/user/"+user1Id+"/group", input, nil)
+		require.NoError(t, err)
+	}
 
-									   t.Log( "Add user 2 to group 1 as well.")
-		{
-									   payload=$( jq -n '{ "group_id": $group_id }' --arg group_id "${group1Id}" )
-									   err := adminClient.Do(ctx, http.MethodPost, "/api/v1/organization/" + organizationId + "/user/${user2Id}/group", input, &output)
-										require.NoError(t, err)
+	t.Log("Add user 2 to group 1 as well.")
+	{
+		input := downballotapi.AddUserToGroupRequest{
+			GroupID: group1Id,
 		}
+		err := adminClient.Do(ctx, http.MethodPost, "/api/v1/organization/"+organizationId+"/user/"+user2Id+"/group", input, nil)
+		require.NoError(t, err)
+	}
 
-									   t.Log( "Add user 2 to group 2.")
-		{
-									   payload=$( jq -n '{ "group_id": $group_id }' --arg group_id "${group2Id}" )
-									   err := adminClient.Do(ctx, http.MethodPost, "/api/v1/organization/" + organizationId + "/user/${user2Id}/group", input, &output)
-										require.NoError(t, err)
+	t.Log("Add user 2 to group 2.")
+	{
+		input := downballotapi.AddUserToGroupRequest{
+			GroupID: group1Id,
 		}
-	*/
+		err := adminClient.Do(ctx, http.MethodPost, "/api/v1/organization/"+organizationId+"/user/"+user2Id+"/group", input, nil)
+		require.NoError(t, err)
+	}
 
 	t.Log("List the persons as the admin user.")
 	{
 		var output downballotapi.ListPersonsResponse
-		err := adminClient.Do(ctx, http.MethodPost, "/api/v1/organization/"+organizationId+"/person", nil, &output)
+		err := adminClient.Do(ctx, http.MethodGet, "/api/v1/organization/"+organizationId+"/person", nil, &output)
 		require.NoError(t, err)
 
 		t.Logf("Persons: %v", output.Persons)
@@ -264,7 +274,7 @@ func TestCampaign(t *testing.T) {
 	t.Log("List the persons as user 1.")
 	{
 		var output downballotapi.ListPersonsResponse
-		err := user1Client.Do(ctx, http.MethodPost, "/api/v1/organization/"+organizationId+"/person", nil, &output)
+		err := user1Client.Do(ctx, http.MethodGet, "/api/v1/organization/"+organizationId+"/person", nil, &output)
 		require.NoError(t, err)
 
 		t.Logf("Persons: %v", output.Persons)
@@ -273,7 +283,7 @@ func TestCampaign(t *testing.T) {
 	t.Log("List the persons as user 2.")
 	{
 		var output downballotapi.ListPersonsResponse
-		err := user2Client.Do(ctx, http.MethodPost, "/api/v1/organization/"+organizationId+"/person", nil, &output)
+		err := user2Client.Do(ctx, http.MethodGet, "/api/v1/organization/"+organizationId+"/person", nil, &output)
 		require.NoError(t, err)
 
 		t.Logf("Persons: %v", output.Persons)

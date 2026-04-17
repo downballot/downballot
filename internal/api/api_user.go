@@ -80,7 +80,7 @@ func (i *Instance) registerUser(request *restful.Request, response *restful.Resp
 		// TODO
 	}
 	err = i.App.DB().Transaction(func(tx *gorm.DB) error {
-		err = i.App.DB().Session(&gorm.Session{NewDB: true}).
+		err = tx.Session(&gorm.Session{NewDB: true}).
 			Create(&user).
 			Error
 		if err != nil {
@@ -90,6 +90,7 @@ func (i *Instance) registerUser(request *restful.Request, response *restful.Resp
 
 		output.ID = fmt.Sprintf("%d", user.ID)
 		output.Name = user.Name
+		output.Username = user.Username
 		return nil
 	})
 	if err != nil {
