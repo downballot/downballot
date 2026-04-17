@@ -14,6 +14,7 @@ import (
 	"gorm.io/gorm"
 )
 
+// RequireAuthenticatedUser requires an authenticated user.
 type RequireAuthenticatedUser struct {
 	CurrentUserID string `api:"downballot.currentUserID"`
 }

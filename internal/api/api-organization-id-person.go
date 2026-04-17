@@ -2,71 +2,48 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/csv"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"strings"
 
 	"github.com/downballot/downballot/downballotapi"
+	"github.com/downballot/downballot/internal/api/downballotwrapper"
 	"github.com/downballot/downballot/internal/filter"
 	"github.com/downballot/downballot/internal/schema"
-	restful "github.com/emicklei/go-restful/v3"
 	"github.com/sirupsen/logrus"
+	"github.com/threatmate/restfulwrapper"
 	"gorm.io/gorm"
 )
 
-func (i *Instance) registerPersonEndpoints(ws *restful.WebService) {
-	ws.Route(
-		ws.POST("organization/{organization_id}/person/import").To(i.importPerson).
-			Doc(`Import a new set of persons`).
-			Notes(`This imports a new set of persons.`).
-			Do(i.doRequireAuthentication).
-			Param(restful.PathParameter("organization_id", "The organization ID.")).
-			Consumes("application/octet-stream").
-			Returns(http.StatusOK, "OK", downballotapi.ImportPersonResponse{}),
-	)
-	ws.Route(
-		ws.GET("organization/{organization_id}/person").To(i.listPersons).
-			Doc(`List the persons`).
-			Notes(`This lists the persons.`).
-			Do(i.doRequireAuthentication).
-			Param(restful.PathParameter("organization_id", "The organization ID.")).
-			Param(ws.QueryParameter("filter", "The filter to use")).
-			Returns(http.StatusOK, "OK", downballotapi.ListPersonsResponse{}),
-	)
+type PostOrganizationIDPersonImportMetadata struct {
+	restfulwrapper.HTTPMethodPOST
+	downballotwrapper.RequireAuthenticatedUser
+	_              string `api:"httppath:/organization/{organization_id}/person/import"`
+	_              string `api:"doc" description:"Import a new set of persons."`
+	_              string `api:"notes" description:"This imports a new set of persons."`
+	Body           []byte `api:"body:consumes:application/octet-stream"`
+	OrganizationID string `api:"path:organization_id"`
 }
 
-func (i *Instance) importPerson(request *restful.Request, response *restful.Response) {
-	ctx := request.Request.Context()
-
-	organizationIDString := request.PathParameter("organization_id")
-	organization, err := getOrganizationForUser(i.App.DB(), request.Attribute(AttributeUserID), organizationIDString)
+func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrganizationIDPersonImportMetadata) (output downballotapi.Envelope[downballotapi.ImportPersonResponse], err error) {
+	organization, err := getOrganizationForUser(a.App.DB(), meta.CurrentUserID, meta.OrganizationID)
 	if err != nil {
-		logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
-		WriteHeaderAndError(ctx, response, http.StatusInternalServerError, err)
-		return
+		return output, err
 	}
 	if organization == nil {
-		WriteHeaderAndText(ctx, response, http.StatusUnauthorized, "Unauthorized")
-		return
+		return output, restfulwrapper.NewAPIResponseError(http.StatusUnauthorized, "")
 	}
 
-	contents, err := ioutil.ReadAll(request.Request.Body)
-	if err != nil {
-		logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
-		WriteHeaderAndError(ctx, response, http.StatusInternalServerError, err)
-		return
-	}
+	contents := meta.Body
 	logrus.WithContext(ctx).Infof("Contents: (%d)", len(contents))
 
 	csvReader := csv.NewReader(bytes.NewReader(contents))
 	csvReader.Comma = '\t'
 	rows, err := csvReader.ReadAll()
 	if err != nil {
-		logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
-		WriteHeaderAndError(ctx, response, http.StatusInternalServerError, err)
-		return
+		return output, err
 	}
 	logrus.WithContext(ctx).Infof("Rows: (%d)", len(rows))
 	for r := range rows {
@@ -140,10 +117,8 @@ func (i *Instance) importPerson(request *restful.Request, response *restful.Resp
 		persons = append(persons, person)
 	}
 
-	output := downballotapi.ImportPersonResponse{
-		Records: uint64(len(persons)),
-	}
-	err = i.App.DB().Transaction(func(tx *gorm.DB) error {
+	output.Data.Records = uint64(len(persons))
+	err = a.App.DB().Transaction(func(tx *gorm.DB) error {
 		err := tx.Session(&gorm.Session{NewDB: true}).
 			Create(&persons).
 			Error
@@ -172,74 +147,68 @@ func (i *Instance) importPerson(request *restful.Request, response *restful.Resp
 		return nil
 	})
 	if err != nil {
-		logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
-		WriteHeaderAndError(ctx, response, http.StatusInternalServerError, err)
-		return
+		return output, err
 	}
 
-	WriteEntity(ctx, response, output)
+	return output, nil
 }
 
-func (i *Instance) listPersons(request *restful.Request, response *restful.Response) {
-	ctx := request.Request.Context()
+type GetOrganizationIDPersonMetadata struct {
+	restfulwrapper.HTTPMethodGET
+	downballotwrapper.RequireAuthenticatedUser
+	_              string                            `api:"httppath:/organization/{organization_id}/person"`
+	_              string                            `api:"doc" description:"List the persons."`
+	_              string                            `api:"notes" description:"This lists the persons."`
+	Body           downballotapi.RegisterUserRequest `api:"body"`
+	OrganizationID string                            `api:"path:organization_id"`
+	Filter         string                            `api:"query:filter"`
+}
 
-	organizationIDString := request.PathParameter("organization_id")
-	organization, err := getOrganizationForUser(i.App.DB(), request.Attribute(AttributeUserID), organizationIDString)
+func (a *API) GetOrganizationIDPerson(ctx context.Context, meta GetOrganizationIDPersonMetadata) (output downballotapi.Envelope[downballotapi.ListPersonsResponse], err error) {
+	organization, err := getOrganizationForUser(a.App.DB(), meta.CurrentUserID, meta.OrganizationID)
 	if err != nil {
-		logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
-		WriteHeaderAndError(ctx, response, http.StatusInternalServerError, err)
-		return
+		return output, err
 	}
 	if organization == nil {
-		WriteHeaderAndText(ctx, response, http.StatusUnauthorized, "Unauthorized")
-		return
+		return output, restfulwrapper.NewAPIResponseError(http.StatusUnauthorized, "")
 	}
 
-	filterString := request.QueryParameter("filter")
-	logrus.WithContext(ctx).Infof("Filter string: %s", filterString)
-	clause, err := filter.Parse(ctx, filterString)
+	logrus.WithContext(ctx).Infof("Filter string: %s", meta.Filter)
+	clause, err := filter.Parse(ctx, meta.Filter)
 	if err != nil {
-		logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
-		WriteHeaderAndError(ctx, response, http.StatusBadRequest, err)
-		return
+		return output, restfulwrapper.NewAPIQueryParameterError("filter", err)
 	}
 
 	var persons []*schema.Person
-	query := i.App.DB().Session(&gorm.Session{NewDB: true})
-	if request.Attribute(AttributeUserID) != nil {
+	query := a.App.DB().Session(&gorm.Session{NewDB: true})
+	if meta.CurrentUserID != "0" { // TODO: "0" is the system token.
 		query = query.Where("organization_id = ?", organization.ID)
 	}
 	err = query.
 		Find(&persons).
 		Error
 	if err != nil {
-		logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
-		WriteHeaderAndError(ctx, response, http.StatusInternalServerError, err)
-		return
+		return output, err
 	}
 
 	personFieldsMap := map[uint64][]*schema.PersonField{}
 	{
 		var fields []*schema.PersonField
-		err = i.App.DB().Session(&gorm.Session{NewDB: true}).
+		err = a.App.DB().Session(&gorm.Session{NewDB: true}).
 			Where("person_id IN (SELECT id FROM person WHERE organization_id = ?)", organization.ID).
 			Find(&fields).
 			Error
 		if err != nil {
-			logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
-			WriteHeaderAndError(ctx, response, http.StatusInternalServerError, err)
-			return
+			return output, err
 		}
 		for _, field := range fields {
 			personFieldsMap[field.PersonID] = append(personFieldsMap[field.PersonID], field)
 		}
 	}
 
-	hierarchies, err := getGroupHierarchiesForUser(i.App.DB(), request.Attribute(AttributeUserID), organization.ID)
+	hierarchies, err := getGroupHierarchiesForUser(a.App.DB(), meta.CurrentUserID, organization.ID)
 	if err != nil {
-		logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
-		WriteHeaderAndError(ctx, response, http.StatusInternalServerError, err)
-		return
+		return output, err
 	}
 	logrus.Infof("Hierarchies: (%d)", len(hierarchies))
 	for hierachyIndex, hierarchy := range hierarchies {
@@ -249,9 +218,7 @@ func (i *Instance) listPersons(request *restful.Request, response *restful.Respo
 		}
 	}
 
-	output := downballotapi.ListPersonsResponse{
-		Persons: []*downballotapi.Person{},
-	}
+	output.Data.Persons = []*downballotapi.Person{}
 	for _, person := range persons {
 		o := &downballotapi.Person{
 			ID:      fmt.Sprintf("%d", person.ID),
@@ -272,16 +239,12 @@ func (i *Instance) listPersons(request *restful.Request, response *restful.Respo
 			for _, group := range hierarchy {
 				groupClause, err := filter.Parse(ctx, group.Filter)
 				if err != nil {
-					logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
-					WriteHeaderAndError(ctx, response, http.StatusBadRequest, err)
-					return
+					return output, err
 				}
 
 				match, err := groupClause.Evaluate(o.Fields)
 				if err != nil {
-					logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
-					WriteHeaderAndError(ctx, response, http.StatusInternalServerError, err)
-					return
+					return output, err
 				}
 				if !match {
 					hierarchyMatch = false
@@ -301,13 +264,12 @@ func (i *Instance) listPersons(request *restful.Request, response *restful.Respo
 		// Handle the endpoint filter.
 		match, err := clause.Evaluate(o.Fields)
 		if err != nil {
-			logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
-			WriteHeaderAndError(ctx, response, http.StatusBadRequest, err)
-			return
+			return output, err
 		}
 		if match {
-			output.Persons = append(output.Persons, o)
+			output.Data.Persons = append(output.Data.Persons, o)
 		}
 	}
-	WriteEntity(ctx, response, output)
+
+	return output, nil
 }
