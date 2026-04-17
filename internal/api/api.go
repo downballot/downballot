@@ -3,24 +3,18 @@ package api
 import (
 	"context"
 	"crypto/rsa"
-	"encoding/json"
 	"fmt"
-	"net/http"
 	"runtime/debug"
-	"strings"
 
 	"github.com/dgrijalva/jwt-go"
-	"github.com/downballot/downballot/downballotapi"
 	"github.com/downballot/downballot/internal/api/downballotwrapper"
-	"github.com/downballot/downballot/internal/apitoken"
 	"github.com/downballot/downballot/internal/application"
-	"github.com/downballot/downballot/internal/schema"
 	restfulspec "github.com/emicklei/go-restful-openapi/v2"
 	"github.com/emicklei/go-restful/v3"
 	"github.com/go-openapi/spec"
 	"github.com/sirupsen/logrus"
+	"github.com/tekkamanendless/httperror"
 	"github.com/threatmate/restfulwrapper"
-	"gorm.io/gorm"
 )
 
 type API struct {
@@ -30,17 +24,6 @@ type API struct {
 	jwtPublicKey  *rsa.PublicKey  // This is the JWT public key, if any.
 	jwtPrivateKey *rsa.PrivateKey // This is the JWT private key, if any.
 }
-
-// These are the attributes that are available as part of the request.
-const (
-	AttributeConfig      = "config"            // (*appconfig.MergedConfig) This is the tenant config.
-	AttributeLoggedIn    = "session:logged_in" // (bool) This is true if the session is valid.
-	AttributeSystemAdmin = "system:admin"      // (bool) This is true if the user is a system admin.
-	AttributeUserAllowed = "user:allowed"      // (bool) This is true if the user is allowed to access the system.
-	AttributeUserID      = "user:id"           // (string) This is the user's ID.
-	AttributeUserName    = "user:name"         // (string) This is the user's name.
-	AttributeUserToken   = "user:token"        // (string) This is the user's API token.
-)
 
 // DefaultPageSize is the default page size for paginated things.
 const DefaultPageSize = 25
@@ -59,57 +42,6 @@ type Instance struct {
 func New() *Instance {
 	instance := new(Instance)
 	return instance
-}
-
-// WriteEntity writes an entity with a 200 status.
-func WriteEntity(ctx context.Context, response *restful.Response, value interface{}) {
-	WriteHeaderAndEntity(ctx, response, http.StatusOK, value)
-}
-
-// WriteHeaderAndEntity writes an enitity with the given status code.
-func WriteHeaderAndEntity(ctx context.Context, response *restful.Response, code int, value interface{}) {
-	payload, err := json.Marshal(value)
-	if err != nil {
-		logrus.WithContext(ctx).Warnf("Could not serialize the value to JSON: %v", err)
-		return
-	}
-
-	envelope := downballotapi.RawEnvelope{
-		Success: true,
-		Message: "Okay",
-		Data:    payload,
-	}
-	contents, err := json.MarshalIndent(envelope, "", " ")
-	if err != nil {
-		logrus.WithContext(ctx).Warnf("Could not serialize the envelope to JSON: %v", err)
-		return
-	}
-
-	response.Header().Set("Content-Type", "application/json")
-	response.WriteHeader(code)
-	_, _ = response.Write(contents)
-}
-
-// WriteHeaderAndError writes an error with the given status code.
-func WriteHeaderAndError(ctx context.Context, response *restful.Response, code int, value error) {
-	WriteHeaderAndText(ctx, response, code, value.Error())
-}
-
-// WriteHeaderAndText writes text with the given status code.
-func WriteHeaderAndText(ctx context.Context, response *restful.Response, code int, value string) {
-	envelope := downballotapi.RawEnvelope{
-		Success: false,
-		Message: value,
-	}
-	contents, err := json.MarshalIndent(envelope, "", " ")
-	if err != nil {
-		logrus.WithContext(ctx).Warnf("Could not serialize the envelope to JSON: %v", err)
-		return
-	}
-
-	response.Header().Set("Content-Type", "application/json")
-	response.WriteHeader(code)
-	_, _ = response.Write(contents)
 }
 
 // Container creates a new `restful` container.
@@ -160,11 +92,15 @@ func (i *Instance) Container() *restful.Container {
 			Produces(restful.MIME_JSON)
 
 		webService.WebService().Filter(func(req *restful.Request, resp *restful.Response, chain *restful.FilterChain) {
+			ctx := req.Request.Context()
+
 			defer func() {
 				if r := recover(); r != nil {
-					logrus.WithContext(req.Request.Context()).Errorf("Recovered from panic: %v", r)
-					logrus.WithContext(req.Request.Context()).Errorf("Stack trace:\n%s", debug.Stack())
-					WriteHeaderAndText(req.Request.Context(), resp, http.StatusInternalServerError, fmt.Sprintf("%v", r))
+					logrus.WithContext(ctx).Errorf("Recovered from panic: %v", r)
+					logrus.WithContext(ctx).Errorf("Stack trace:\n%s", debug.Stack())
+					wrappedError := downballotwrapper.Error(fmt.Errorf("%v", r))
+					writer := wrappedError.(restfulwrapper.ErrorWriter)
+					writer.WriteError(resp)
 				}
 			}()
 
@@ -201,16 +137,20 @@ func (i *Instance) Container() *restful.Container {
 		container.Add(webService.WebService())
 	}
 
-	container.ServiceErrorHandler(func(serviceError restful.ServiceError, request *restful.Request, response *restful.Response) {
-		ctx := request.Request.Context()
+	container.ServiceErrorHandler(func(serviceError restful.ServiceError, req *restful.Request, resp *restful.Response) {
+		ctx := req.Request.Context()
+
 		logrus.WithContext(ctx).Debugf("Service error: %v", serviceError)
 		for header, values := range serviceError.Header {
 			for _, value := range values {
-				response.Header().Add(header, value)
+				resp.Header().Add(header, value)
 			}
 		}
 
-		WriteHeaderAndText(ctx, response, serviceError.Code, serviceError.Message)
+		err := fmt.Errorf("%w: %s", httperror.ErrorFromStatus(serviceError.Code), serviceError.Message)
+		wrappedError := downballotwrapper.Error(err)
+		writer := wrappedError.(restfulwrapper.ErrorWriter)
+		writer.WriteError(resp)
 	})
 
 	config := restfulspec.Config{
@@ -245,154 +185,4 @@ func (i *Instance) Container() *restful.Container {
 	container.Add(restfulspec.NewOpenAPIService(config))
 
 	return container
-}
-
-// doRequireAuthentication can be used as a restful.RouteBuilder `Do` argument to require authentication.
-//
-// This will set the required headers and return failure modes.
-func (i *Instance) doRequireAuthentication(builder *restful.RouteBuilder) {
-	builder.Filter(i.requireAuthenticationFilter(true)).
-		Param(restful.HeaderParameter("Authorization", "The authorization token.  This should be of the form: \"Bearer ${token}\"")).
-		Returns(http.StatusUnauthorized, "Unauthorized", nil)
-}
-
-// doAcceptAuthentication can be used as a restful.RouteBuilder `Do` argument to accept (but not require) authentication.
-//
-// This will set the required headers and return failure modes.
-func (i *Instance) doAcceptAuthentication(builder *restful.RouteBuilder) {
-	builder.Filter(i.requireAuthenticationFilter(false)).
-		Param(restful.HeaderParameter("Authorization", "The authorization token.  This should be of the form: \"Bearer ${token}\"")).
-		Returns(http.StatusUnauthorized, "Unauthorized", nil)
-}
-
-// doRequireSystemAdministrator can be used as a restful.RouteBuilder `Do` argument to require the user to be a system administrator.
-func (i *Instance) doRequireSystemAdministrator(builder *restful.RouteBuilder) {
-	fn := func(request *restful.Request, response *restful.Response, chain *restful.FilterChain) {
-		ctx := request.Request.Context()
-
-		if request.Attribute(AttributeSystemAdmin) != true {
-			WriteHeaderAndText(ctx, response, http.StatusForbidden, "Forbidden")
-			return
-		}
-
-		// Continue with the rest of the chain.
-		chain.ProcessFilter(request, response)
-	}
-	builder.Filter(fn).
-		Returns(http.StatusUnauthorized, "Forbidden", nil)
-}
-
-// validateToken validates an API token (from a string) and returns the token's claims,
-// which can be used to learn more about the user.
-//
-// If the token has expired, then this fails with an error.
-func (i *Instance) validateToken(tokenString string) (apitoken.TokenClaims, error) {
-	var claims apitoken.TokenClaims
-	_, err := jwt.ParseWithClaims(tokenString, &claims,
-		func(t *jwt.Token) (interface{}, error) {
-			if i.jwtSecret != nil {
-				return i.jwtSecret, nil
-			}
-			if i.jwtPublicKey != nil {
-				return i.jwtPublicKey, nil
-			}
-			return jwt.UnsafeAllowNoneSignatureType, nil
-		},
-	)
-	if err != nil {
-		return claims, fmt.Errorf("could not parse token: %v", err)
-	}
-
-	return claims, nil
-}
-
-// requireAuthenticationFilter is a `restful` filter that ensures that the user is authenticated.
-//
-// If `required` is true, then this will fail with a 401 error if no authentication was given.
-// If `required` is false, then authentication information will be accepted if provided, but it
-// will not fail if not.
-//
-// The only authentication scheme that we support is "bearer" authentication with a token.
-// The token can either be a user token or the "master" token for the service.
-func (i *Instance) requireAuthenticationFilter(required bool) func(request *restful.Request, response *restful.Response, chain *restful.FilterChain) {
-	return func(request *restful.Request, response *restful.Response, chain *restful.FilterChain) {
-		ctx := request.Request.Context()
-
-		// Figure out what the token is.
-		if headerValue := request.HeaderParameter("Authorization"); headerValue != "" {
-			logrus.WithContext(request.Request.Context()).Debugf("[auth] Header Authorization provided.")
-
-			token := ""
-			if strings.HasPrefix(headerValue, "Bearer ") {
-				token = strings.TrimPrefix(headerValue, "Bearer ")
-			} else {
-				logrus.WithContext(request.Request.Context()).Infof("[auth] Invalid Authoriation format.")
-				WriteHeaderAndText(ctx, response, http.StatusUnauthorized, "Invalid Authorization format")
-				return
-			}
-
-			request.SetAttribute(AttributeLoggedIn, false)
-			request.SetAttribute(AttributeSystemAdmin, false)
-			request.SetAttribute(AttributeUserToken, token)
-
-			if i.Config.MasterToken != "" && token == i.Config.MasterToken {
-				request.SetAttribute(AttributeLoggedIn, true)
-				request.SetAttribute(AttributeSystemAdmin, true)
-			} else {
-				claims, err := i.validateToken(token)
-				if err != nil {
-					logrus.WithContext(request.Request.Context()).Infof("[auth] Invalid token: %v", err)
-					WriteHeaderAndText(ctx, response, http.StatusUnauthorized, "Invalid token")
-					return
-				}
-
-				request.SetAttribute(AttributeLoggedIn, true)
-				request.SetAttribute(AttributeUserName, claims.Email)
-
-				// TODO: VALIDATE THE USER
-				var user *schema.User
-				{
-					var users []*schema.User
-					err = i.App.DB().Session(&gorm.Session{NewDB: true}).
-						Where("username = ?", claims.Email).
-						First(&users).
-						Error
-					if err != nil {
-						logrus.WithContext(ctx).Warnf("Error: [%T] %v", err, err)
-						WriteHeaderAndError(ctx, response, http.StatusInternalServerError, err)
-						return
-					}
-					if len(users) == 0 {
-						logrus.WithContext(request.Request.Context()).Infof("[auth] No such user: %s", claims.Email)
-						WriteHeaderAndText(ctx, response, http.StatusUnauthorized, "Invalid subject")
-						return
-					}
-					user = users[0]
-				}
-
-				request.SetAttribute(AttributeUserID, user.ID)
-			}
-
-			// If authentication is required, then fail if the user is not logged in.
-			if required {
-				if request.Attribute(AttributeLoggedIn) != true {
-					WriteHeaderAndText(ctx, response, http.StatusUnauthorized, "You must be logged in.")
-					return
-				}
-			}
-
-			// Continue with the rest of the chain.
-			chain.ProcessFilter(request, response)
-			return
-		}
-
-		// No authorization header was given.
-		logrus.WithContext(request.Request.Context()).Debugf("[auth] Missing header: Authorization")
-		if !required {
-			// Continue with the rest of the chain.
-			chain.ProcessFilter(request, response)
-		} else {
-			WriteHeaderAndText(ctx, response, http.StatusUnauthorized, "Missing header: Authorization")
-		}
-	}
 }
