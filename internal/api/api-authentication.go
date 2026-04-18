@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -11,7 +12,6 @@ import (
 	"github.com/downballot/downballot/internal/api/downballotwrapper"
 	"github.com/downballot/downballot/internal/apitoken"
 	"github.com/downballot/downballot/internal/durationparser"
-	"github.com/sirupsen/logrus"
 	"github.com/threatmate/restfulwrapper"
 )
 
@@ -25,8 +25,8 @@ type PostAuthenticationCreateAccountMetadata struct {
 }
 
 func (a *API) PostAuthenticationCreateAccount(ctx context.Context, meta PostAuthenticationCreateAccountMetadata) (output downballotapi.Envelope[downballotapi.CreateAccountResponse], err error) {
-	logrus.WithContext(ctx).Infof("Username: %s", meta.Body.Username)
-	logrus.WithContext(ctx).Infof("Password: ********")
+	slog.InfoContext(ctx, fmt.Sprintf("Username: %s", meta.Body.Username))
+	slog.InfoContext(ctx, "Password: ********")
 
 	// TODO: CREATE THE USER
 
@@ -46,11 +46,11 @@ type PostAuthenticationLoginMetadata struct {
 }
 
 func (a *API) PostAuthenticationLogin(ctx context.Context, meta PostAuthenticationLoginMetadata) (output downballotapi.Envelope[downballotapi.LoginResponse], err error) {
-	logrus.WithContext(ctx).Infof("Username: %s", meta.Body.Username)
+	slog.InfoContext(ctx, fmt.Sprintf("Username: %s", meta.Body.Username))
 	if meta.Body.Password == "" {
-		logrus.WithContext(ctx).Infof("Password: n/a")
+		slog.InfoContext(ctx, "Password: n/a")
 	} else {
-		logrus.WithContext(ctx).Infof("Password: ********")
+		slog.InfoContext(ctx, "Password: ********")
 	}
 
 	claims := apitoken.TokenClaims{}
@@ -63,20 +63,20 @@ func (a *API) PostAuthenticationLogin(ctx context.Context, meta PostAuthenticati
 			claims.ExpiresAt = expirationDate.Unix()
 		}
 	}
-	logrus.WithContext(ctx).Infof("Expiration date: %v", claims.ExpiresAt)
+	slog.InfoContext(ctx, fmt.Sprintf("Expiration date: %v", claims.ExpiresAt))
 
 	if meta.CurrentUser != nil {
 		claims.Subject = meta.CurrentUser.ID
 		claims.Email = meta.CurrentUser.EmailAddress
 
-		logrus.WithContext(ctx).Infof("This request is already authenticated as: %s", claims.Subject)
+		slog.InfoContext(ctx, fmt.Sprintf("This request is already authenticated as: %s", claims.Subject))
 	} else if meta.Body.Username != "" && meta.Body.Password != "" {
 		// TODO: SIGN THE USER IN.
 
 		claims.Subject = meta.Body.Username
 		claims.Email = meta.Body.Username
 	} else {
-		logrus.WithContext(ctx).Infof("This request is not authenticated.")
+		slog.InfoContext(ctx, "This request is not authenticated.")
 	}
 
 	// If we couldn't login the user, then fail.
@@ -120,7 +120,7 @@ type PostAuthenticationResetPasswordMetadata struct {
 }
 
 func (a *API) PostAuthenticationResetPassword(ctx context.Context, meta PostAuthenticationResetPasswordMetadata) (output downballotapi.Envelope[downballotapi.ResetPasswordResponse], err error) {
-	logrus.WithContext(ctx).Infof("Username: %s", meta.Body.Username)
+	slog.InfoContext(ctx, fmt.Sprintf("Username: %s", meta.Body.Username))
 
 	// TODO: ATTEMPT TO RESET THE PASSWORD
 

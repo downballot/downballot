@@ -4,13 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log/slog"
 	"net/http"
 	"net/http/pprof"
 	"os"
 	"runtime"
-	"sort"
+	"slices"
 	"strconv"
 	"time"
 
@@ -40,7 +39,7 @@ func main() {
 				slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})))
 			}
 		} else {
-			logrus.Warnf("Unknown log level: %q", value)
+			slog.WarnContext(ctx, fmt.Sprintf("Unknown log level: %q", value))
 		}
 	}
 
@@ -53,28 +52,28 @@ func main() {
 			slackLevel = "error"
 		}
 		slackToken := os.Getenv("SLACK_TOKEN")
-		logrus.Infof("Slack channel: %s", slackChannel)
-		logrus.Infof("Slack level: %s", slackLevel)
+		slog.InfoContext(ctx, fmt.Sprintf("Slack channel: %s", slackChannel))
+		slog.InfoContext(ctx, fmt.Sprintf("Slack level: %s", slackLevel))
 		if slackToken == "" {
-			logrus.Infof("Slack token: n/a")
+			slog.InfoContext(ctx, "Slack token: n/a")
 		} else {
-			logrus.Infof("Slack token: ********")
+			slog.InfoContext(ctx, "Slack token: ********")
 		}
 		debugSlack := false
 		if value := os.Getenv("SLACK_DEBUG"); value != "" {
 			var err error
 			debugSlack, err = strconv.ParseBool(value)
 			if err != nil {
-				logrus.Errorf("Could not parse value %q: %v", value, err)
+				slog.ErrorContext(ctx, fmt.Sprintf("Could not parse value %q: %v", value, err))
 				os.Exit(1)
 			}
 		}
-		logrus.Infof("Debug slack: %t", debugSlack)
+		slog.InfoContext(ctx, fmt.Sprintf("Debug slack: %t", debugSlack))
 		if slackToken != "" && slackChannel != "" {
 			// Parse the slack log level.
 			minimumSlackLogLevel, err := logrus.ParseLevel(slackLevel)
 			if err != nil {
-				logrus.Warnf("Unknown log level: %q", slackLevel)
+				slog.WarnContext(ctx, fmt.Sprintf("Unknown log level: %q", slackLevel))
 				minimumSlackLogLevel = logrus.ErrorLevel // Default to the error level.
 			}
 
@@ -82,24 +81,21 @@ func main() {
 			hook := slackhook.New(slackClient, slackChannel, minimumSlackLogLevel)
 			logrus.AddHook(hook)
 
-			logrus.Infof("Slack hook has been registered.")
+			slog.InfoContext(ctx, "Slack hook has been registered.")
 
 			/* Re-enable these to verify the Slack hook is working appropriately.
-			logrus.Tracef("Trace")
-			logrus.Debugf("Debug")
-			logrus.Infof("Info")
-			logrus.Warnf("Warn")
-			logrus.Errorf("Error")
-			logrus.Fatalf("Fatal")
-			logrus.Panicf("Panic")
+			slog.DebugContext(ctx, "Debug")
+			slog.InfoContext(ctx, "Info")
+			slog.WarnContext(ctx, "Warn")
+			slog.ErrorContext("Error")
 			os.Exit(0)
 			//*/
 		}
 	}
 
 	// Print the Go runtime information.
-	logrus.Infof("Go runtime: Version: %s", runtime.Version())
-	logrus.Infof("Go runtime: NumCPU: %d", runtime.NumCPU())
+	slog.InfoContext(ctx, fmt.Sprintf("Go runtime: Version: %s", runtime.Version()))
+	slog.InfoContext(ctx, fmt.Sprintf("Go runtime: NumCPU: %d", runtime.NumCPU()))
 
 	portString := os.Getenv("PORT")
 	if portString == "" {
@@ -110,35 +106,35 @@ func main() {
 		staticDirectory = "static"
 	}
 
-	logrus.Infof("Port: %s", portString)
-	logrus.Infof("Static directory: %s", staticDirectory)
+	slog.InfoContext(ctx, fmt.Sprintf("Port: %s", portString))
+	slog.InfoContext(ctx, fmt.Sprintf("Static directory: %s", staticDirectory))
 
 	profile := false
 	if value := os.Getenv("PROFILE"); value != "" {
 		v, err := strconv.ParseBool(value)
 		if err != nil {
-			logrus.Warnf("Could not parse PROFILE value: %v", err)
+			slog.WarnContext(ctx, fmt.Sprintf("Could not parse PROFILE value: %v", err))
 		} else {
 			profile = v
 		}
 	}
 
-	logrus.Infof("Port: %s", portString)
-	logrus.Infof("Static directory: %s", staticDirectory)
+	slog.InfoContext(ctx, fmt.Sprintf("Port: %s", portString))
+	slog.InfoContext(ctx, fmt.Sprintf("Static directory: %s", staticDirectory))
 
 	{
 		dir, err := os.Getwd()
 		if err != nil {
-			logrus.Warnf("Current working directory: Error: %v", err)
+			slog.WarnContext(ctx, fmt.Sprintf("Current working directory: Error: %v", err))
 		} else {
-			logrus.Infof("Current working directory: %s", dir)
+			slog.InfoContext(ctx, fmt.Sprintf("Current working directory: %s", dir))
 		}
 
-		logrus.Infof("Files in the current directory:")
+		slog.InfoContext(ctx, "Files in the current directory:")
 		var files []string
-		fileInfo, err := ioutil.ReadDir(".")
+		fileInfo, err := os.ReadDir(".")
 		if err != nil {
-			logrus.Warnf("Error listing the files: %v", err)
+			slog.WarnContext(ctx, fmt.Sprintf("Error listing the files: %v", err))
 		} else {
 			for _, file := range fileInfo {
 				name := file.Name()
@@ -147,18 +143,18 @@ func main() {
 				}
 				files = append(files, name)
 			}
-			sort.Strings(files)
+			slices.Sort(files)
 			for _, file := range files {
-				logrus.Infof("* %s", file)
+				slog.InfoContext(ctx, fmt.Sprintf("* %s", file))
 			}
 		}
 	}
 	{
-		logrus.Infof("Files in the static directory:")
+		slog.InfoContext(ctx, "Files in the static directory:")
 		var files []string
-		fileInfo, err := ioutil.ReadDir(staticDirectory)
+		fileInfo, err := os.ReadDir(staticDirectory)
 		if err != nil {
-			logrus.Warnf("Error listing the files: %v", err)
+			slog.WarnContext(ctx, fmt.Sprintf("Error listing the files: %v", err))
 		} else {
 			for _, file := range fileInfo {
 				name := file.Name()
@@ -167,38 +163,38 @@ func main() {
 				}
 				files = append(files, name)
 			}
-			sort.Strings(files)
+			slices.Sort(files)
 			for _, file := range files {
-				logrus.Infof("* %s", file)
+				slog.InfoContext(ctx, fmt.Sprintf("* %s", file))
 			}
 		}
 	}
 
 	var config appconfig.Config
 	if _, err := os.Stat("config.json"); err != nil {
-		logrus.Warnf("Could not find config.json: %v", err)
+		slog.WarnContext(ctx, fmt.Sprintf("Could not find config.json: %v", err))
 	} else {
-		contents, err := ioutil.ReadFile("config.json")
+		contents, err := os.ReadFile("config.json")
 		if err != nil {
-			logrus.Errorf("Could not read config.json: %v", err)
+			slog.ErrorContext(ctx, fmt.Sprintf("Could not read config.json: %v", err))
 			os.Exit(1)
 		}
 		err = json.Unmarshal(contents, &config)
 		if err != nil {
-			logrus.Errorf("Could not parse config.json: %v", err)
+			slog.ErrorContext(ctx, fmt.Sprintf("Could not parse config.json: %v", err))
 			os.Exit(1)
 		}
 	}
 
 	db, err := database.New(ctx, config.DatabaseDriver, config.DatabaseString)
 	if err != nil {
-		logrus.Errorf("Could not connect to database: %v", err)
+		slog.ErrorContext(ctx, fmt.Sprintf("Could not connect to database: %v", err))
 		os.Exit(1)
 	}
 
 	err = migrator.Migrate(db)
 	if err != nil {
-		logrus.Errorf("Could not migrate database: %v", err)
+		slog.ErrorContext(ctx, fmt.Sprintf("Could not migrate database: %v", err))
 		os.Exit(1)
 	}
 
@@ -213,7 +209,7 @@ func main() {
 		MasterToken:   config.MasterToken,
 	}
 
-	apiContainer := apiInstance.Container()
+	apiContainer := apiInstance.Container(ctx)
 
 	myHandler := http.NewServeMux()
 	staticHandler := http.StripPrefix("/", http.FileServer(http.Dir(staticDirectory)))
@@ -260,9 +256,9 @@ func main() {
 		Handler: finalHandler,
 	}
 
-	logrus.Infof("Listening on: %s", httpServer.Addr)
+	slog.InfoContext(ctx, fmt.Sprintf("Listening on: %s", httpServer.Addr))
 	err = httpServer.ListenAndServe()
 	if err != nil {
-		logrus.Errorf("Error: %v", err)
+		slog.ErrorContext(ctx, fmt.Sprintf("Error: %v", err))
 	}
 }

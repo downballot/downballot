@@ -3,11 +3,11 @@ package api
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/downballot/downballot/downballotapi"
 	"github.com/downballot/downballot/internal/api/downballotwrapper"
 	"github.com/downballot/downballot/internal/schema"
-	"github.com/sirupsen/logrus"
 	"github.com/threatmate/restfulwrapper"
 	"gorm.io/gorm"
 )
@@ -31,7 +31,7 @@ func (a *API) PostOrganizationRegister(ctx context.Context, meta PostOrganizatio
 			return output, restfulwrapper.NewAPIBodyError(fmt.Errorf("missing owner_id"))
 		}
 		meta.Body.OwnerID = meta.CurrentUser.ID
-		logrus.WithContext(ctx).Infof("No owner ID given; using current user: %s", meta.Body.OwnerID)
+		slog.InfoContext(ctx, fmt.Sprintf("No owner ID given; using current user: %s", meta.Body.OwnerID))
 	}
 	if meta.Body.OwnerID != "" && meta.CurrentUser.ID != "0" {
 		if meta.CurrentUser.ID != meta.Body.OwnerID {

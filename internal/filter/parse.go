@@ -3,9 +3,8 @@ package filter
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
-
-	"github.com/sirupsen/logrus"
 )
 
 // Operation constants.
@@ -172,9 +171,9 @@ func Parse(ctx context.Context, input string) (Clause, error) {
 		return nil, err
 	}
 
-	logrus.WithContext(ctx).Debugf("Tokens: (%d)", len(tokens))
+	slog.DebugContext(ctx, fmt.Sprintf("Tokens: (%d)", len(tokens)))
 	for _, token := range tokens {
-		logrus.WithContext(ctx).Debugf("* %s (quoted: %t)", token.Value, token.Quote != "")
+		slog.DebugContext(ctx, fmt.Sprintf("* %s (quoted: %t)", token.Value, token.Quote != ""))
 	}
 
 	clause, err := ParseTokens(tokens)

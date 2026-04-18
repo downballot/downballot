@@ -37,7 +37,7 @@ func New(t *testing.T, ctx context.Context) *Server {
 			MasterToken: "my-master-token",
 		}
 
-		apiContainer := apiInstance.Container()
+		apiContainer := apiInstance.Container(ctx)
 		myHandler.Handle("/api/", apiContainer)
 	}
 	httpServer := httptest.NewServer(myHandler)

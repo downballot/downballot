@@ -5,13 +5,13 @@ import (
 	"context"
 	"encoding/csv"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/downballot/downballot/downballotapi"
 	"github.com/downballot/downballot/internal/api/downballotwrapper"
 	"github.com/downballot/downballot/internal/filter"
 	"github.com/downballot/downballot/internal/schema"
-	"github.com/sirupsen/logrus"
 	"github.com/threatmate/restfulwrapper"
 	"gorm.io/gorm"
 )
@@ -29,7 +29,7 @@ type PostOrganizationIDPersonImportMetadata struct {
 
 func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrganizationIDPersonImportMetadata) (output downballotapi.Envelope[downballotapi.ImportPersonResponse], err error) {
 	contents := meta.Body
-	logrus.WithContext(ctx).Infof("Contents: (%d)", len(contents))
+	slog.InfoContext(ctx, fmt.Sprintf("Contents: (%d)", len(contents)))
 
 	csvReader := csv.NewReader(bytes.NewReader(contents))
 	csvReader.Comma = '\t'
@@ -37,7 +37,7 @@ func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrgan
 	if err != nil {
 		return output, err
 	}
-	logrus.WithContext(ctx).Infof("Rows: (%d)", len(rows))
+	slog.InfoContext(ctx, fmt.Sprintf("Rows: (%d)", len(rows)))
 	for r := range rows {
 		for c := range rows[r] {
 			rows[r][c] = strings.TrimSpace(rows[r][c])
@@ -48,13 +48,13 @@ func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrgan
 	if len(rows) > 0 {
 		header = rows[0]
 		rows = rows[1:]
-		logrus.WithContext(ctx).Infof("Header: (%d)", len(header))
+		slog.InfoContext(ctx, fmt.Sprintf("Header: (%d)", len(header)))
 	}
-	logrus.WithContext(ctx).Infof("Rows: (%d)", len(rows))
+	slog.InfoContext(ctx, fmt.Sprintf("Rows: (%d)", len(rows)))
 	for rowIndex, row := range rows {
-		logrus.WithContext(ctx).Infof("Row[%d]: (%d)", rowIndex, len(row))
+		slog.InfoContext(ctx, fmt.Sprintf("Row[%d]: (%d)", rowIndex, len(row)))
 		for h, name := range header {
-			logrus.WithContext(ctx).Infof("   %s: %s", name, row[h])
+			slog.InfoContext(ctx, fmt.Sprintf("   %s: %s", name, row[h]))
 		}
 	}
 
@@ -157,7 +157,7 @@ type GetOrganizationIDPersonMetadata struct {
 }
 
 func (a *API) GetOrganizationIDPerson(ctx context.Context, meta GetOrganizationIDPersonMetadata) (output downballotapi.Envelope[downballotapi.ListPersonsResponse], err error) {
-	logrus.WithContext(ctx).Infof("Filter string: %s", meta.Filter)
+	slog.InfoContext(ctx, fmt.Sprintf("Filter string: %s", meta.Filter))
 	clause, err := filter.Parse(ctx, meta.Filter)
 	if err != nil {
 		return output, restfulwrapper.NewAPIQueryParameterError("filter", err)
@@ -194,11 +194,11 @@ func (a *API) GetOrganizationIDPerson(ctx context.Context, meta GetOrganizationI
 	if err != nil {
 		return output, err
 	}
-	logrus.Infof("Hierarchies: (%d)", len(hierarchies))
+	slog.InfoContext(ctx, fmt.Sprintf("Hierarchies: (%d)", len(hierarchies)))
 	for hierachyIndex, hierarchy := range hierarchies {
-		logrus.Infof("   [%d]: (%d)", hierachyIndex, len(hierarchy))
+		slog.InfoContext(ctx, fmt.Sprintf("   [%d]: (%d)", hierachyIndex, len(hierarchy)))
 		for _, group := range hierarchy {
-			logrus.Infof("      * %s", group.Name)
+			slog.InfoContext(ctx, fmt.Sprintf("      * %s", group.Name))
 		}
 	}
 

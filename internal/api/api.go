@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rsa"
 	"fmt"
+	"log/slog"
 	"runtime/debug"
 
 	"github.com/dgrijalva/jwt-go"
@@ -12,7 +13,6 @@ import (
 	restfulspec "github.com/emicklei/go-restful-openapi/v2"
 	"github.com/emicklei/go-restful/v3"
 	"github.com/go-openapi/spec"
-	"github.com/sirupsen/logrus"
 	"github.com/tekkamanendless/httperror"
 	"github.com/threatmate/restfulwrapper"
 )
@@ -45,14 +45,14 @@ func New() *Instance {
 // Container creates a new `restful` container.
 //
 // If `Debug` is set, then the debug endpoints will be added to it.
-func (i *Instance) Container() *restful.Container {
+func (i *Instance) Container(ctx context.Context) *restful.Container {
 	if i.Config.JWTSecret != "" {
 		i.jwtSecret = []byte(i.Config.JWTSecret)
 	}
 	if i.Config.JWTPublicKey != "" {
 		publicKey, err := jwt.ParseRSAPublicKeyFromPEM([]byte(i.Config.JWTPublicKey))
 		if err != nil {
-			logrus.Warnf("Could not parse PEM public key: %v", err) // We don't have a context here.  This happens at initialization.
+			slog.WarnContext(ctx, fmt.Sprintf("Could not parse PEM public key: %v", err))
 		} else {
 			i.jwtPublicKey = publicKey
 		}
@@ -60,14 +60,14 @@ func (i *Instance) Container() *restful.Container {
 	if i.Config.JWTPrivateKey != "" {
 		privateKey, err := jwt.ParseRSAPrivateKeyFromPEM([]byte(i.Config.JWTPrivateKey))
 		if err != nil {
-			logrus.Warnf("Could not parse PEM private key: %v", err) // We don't have a context here.  This happens at initialization.
+			slog.WarnContext(ctx, fmt.Sprintf("Could not parse PEM private key: %v", err))
 		} else {
 			i.jwtPrivateKey = privateKey
 		}
 	}
-	//logrus.Debugf("JWT secret: %v", i.jwtSecret) // We don't have a context here.  This happens at initialization.
-	//logrus.Debugf("JWT public key: %v", i.jwtPublicKey) // We don't have a context here.  This happens at initialization.
-	//logrus.Debugf("JWT private key: %v", i.jwtPrivateKey) // We don't have a context here.  This happens at initialization.
+	//slog.DebugContext(ctx, fmt.Sprintf("JWT secret: %v", i.jwtSecret))
+	//slog.DebugContext(ctx, fmt.Sprintf("JWT public key: %v", i.jwtPublicKey))
+	//slog.DebugContext(ctx, fmt.Sprintf("JWT private key: %v", i.jwtPrivateKey))
 
 	container := restful.NewContainer()
 
@@ -94,8 +94,8 @@ func (i *Instance) Container() *restful.Container {
 
 			defer func() {
 				if r := recover(); r != nil {
-					logrus.WithContext(ctx).Errorf("Recovered from panic: %v", r)
-					logrus.WithContext(ctx).Errorf("Stack trace:\n%s", debug.Stack())
+					slog.ErrorContext(ctx, fmt.Sprintf("Recovered from panic: %v", r))
+					slog.ErrorContext(ctx, fmt.Sprintf("Stack trace:\n%s", debug.Stack()))
 					wrappedError := downballotwrapper.Error(fmt.Errorf("%v", r))
 					writer := wrappedError.(restfulwrapper.ErrorWriter)
 					writer.WriteError(resp)
@@ -137,7 +137,7 @@ func (i *Instance) Container() *restful.Container {
 	container.ServiceErrorHandler(func(serviceError restful.ServiceError, req *restful.Request, resp *restful.Response) {
 		ctx := req.Request.Context()
 
-		logrus.WithContext(ctx).Debugf("Service error: %v", serviceError)
+		slog.DebugContext(ctx, fmt.Sprintf("Service error: %v", serviceError))
 		for header, values := range serviceError.Header {
 			for _, value := range values {
 				resp.Header().Add(header, value)
