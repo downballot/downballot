@@ -165,9 +165,7 @@ func (a *API) GetOrganizationIDPerson(ctx context.Context, meta GetOrganizationI
 
 	var persons []*schema.Person
 	query := meta.DB.Session(&gorm.Session{})
-	if meta.CurrentUser.ID != "0" { // TODO: "0" is the system token.
-		query = query.Where("organization_id = ?", meta.Organization.ID)
-	}
+	query = query.Where("organization_id = ?", meta.Organization.ID)
 	err = query.
 		Find(&persons).
 		Error

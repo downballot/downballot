@@ -12,7 +12,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// PostUserRegister does not accept authentication, since this is what makes an account in the first place.
+// PostUser does not accept authentication, since this is what makes an account in the first place.
 type PostUserMetadata struct {
 	restfulwrapper.HTTPMethodPOST
 	downballotwrapper.UseDatabase
@@ -43,6 +43,7 @@ func (a *API) PostUser(ctx context.Context, meta PostUserMetadata) (output downb
 			return output, fmt.Errorf("could not search for existing users: %w", err)
 		}
 		if len(testUsers) > 0 {
+			// TODO: Don't fail if the user is unverified; just treat it like a new user.
 			return output, restfulwrapper.NewAPIResponseError(http.StatusConflict, "Username already taken")
 		}
 	}
@@ -61,6 +62,8 @@ func (a *API) PostUser(ctx context.Context, meta PostUserMetadata) (output downb
 		if err != nil {
 			return fmt.Errorf("could not create user: %w", err)
 		}
+
+		// TODO: Mark the user as unverified and send a verification e-mail.
 
 		output.Data.ID = fmt.Sprintf("%d", user.ID)
 		output.Data.Name = user.Name

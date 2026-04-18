@@ -132,7 +132,7 @@ func TestCampaign(t *testing.T) {
 			Name: organizationName,
 		}
 		var output downballotapi.RegisterOrganizationResponse
-		err := adminClient.Do(ctx, http.MethodPost, "/api/v1/organization/register", input, &output)
+		err := adminClient.Do(ctx, http.MethodPost, "/api/v1/organization", input, &output)
 		require.NoError(t, err)
 		organizationId = output.ID
 		t.Logf("Organization ID: %s", organizationId)
