@@ -114,7 +114,7 @@ func Tokenize(input string) ([]*Token, error) {
 						Symbol: true,
 					}
 				} else {
-					if !currentToken.Symbol {
+					if currentToken.Quote == "" && !currentToken.Symbol {
 						// End the current token.
 						tokens = append(tokens, currentToken)
 
@@ -133,7 +133,7 @@ func Tokenize(input string) ([]*Token, error) {
 					}
 				} else {
 					if currentToken.Quote == "" {
-						return nil, fmt.Errorf("unexpected quote: %q", input[i])
+						return nil, fmt.Errorf("unexpected quote at [%d]: %q", i, input[i])
 					} else if currentToken.Quote == string(input[i]) {
 						// End the current token.
 						tokens = append(tokens, currentToken)
@@ -144,6 +144,7 @@ func Tokenize(input string) ([]*Token, error) {
 					}
 				}
 			default:
+				// TODO: This could be wrong...
 				if currentToken != nil && currentToken.Symbol {
 					// End the current token.
 					tokens = append(tokens, currentToken)

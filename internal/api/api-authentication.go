@@ -23,7 +23,7 @@ type PostAuthenticationLoginMetadata struct {
 	_        string                     `api:"httppath:/authentication/login"`
 	_        string                     `api:"doc" description:"Log in."`
 	_        string                     `api:"notes" description:"This attempts to log in the user with a username and password.  Upon completion, this will provide the user with an API token that can be used in subsequent calls."`
-	Body     downballotapi.LoginRequest `api:"body:consumes:*/*;empty"`
+	Body     downballotapi.LoginRequest `api:"body"`
 	Lifetime *string                    `api:"query:lifetime"`
 }
 

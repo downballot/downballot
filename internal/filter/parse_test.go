@@ -143,6 +143,12 @@ func TestTokenize(t *testing.T) {
 			tokens:      []string{"-", "5"},
 		},
 		{
+			description: "quoted special tokens",
+			input:       `'::vf-a+b_c' = 'test "1"'`,
+			success:     true,
+			tokens:      []string{`::vf-a+b_c`, `=`, `test "1"`},
+		},
+		{
 			description: "incomplete single quote",
 			input:       "hello, 'world",
 			success:     false,
