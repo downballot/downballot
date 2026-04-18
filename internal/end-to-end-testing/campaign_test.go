@@ -62,7 +62,7 @@ func TestCampaign(t *testing.T) {
 			Password: adminPassword,
 		}
 		var output downballotapi.RegisterUserResponse
-		err := application.AuthenticatedClientMaster().Do(ctx, http.MethodPost, "/api/v1/user/register", input, &output)
+		err := application.AuthenticatedClientMaster().Do(ctx, http.MethodPost, "/api/v1/user", input, &output)
 		require.NoError(t, err)
 		adminUserId = output.ID
 		t.Logf("User ID: %s", adminUserId)
@@ -76,7 +76,7 @@ func TestCampaign(t *testing.T) {
 			Password: user1Password,
 		}
 		var output downballotapi.RegisterUserResponse
-		err := application.AuthenticatedClientMaster().Do(ctx, http.MethodPost, "/api/v1/user/register", input, &output)
+		err := application.AuthenticatedClientMaster().Do(ctx, http.MethodPost, "/api/v1/user", input, &output)
 		require.NoError(t, err)
 		user1Id = output.ID
 		t.Logf("User 1 ID: %s", user1Id)
@@ -90,7 +90,7 @@ func TestCampaign(t *testing.T) {
 			Password: user2Password,
 		}
 		var output downballotapi.RegisterUserResponse
-		err := application.AuthenticatedClientMaster().Do(ctx, http.MethodPost, "/api/v1/user/register", input, &output)
+		err := application.AuthenticatedClientMaster().Do(ctx, http.MethodPost, "/api/v1/user", input, &output)
 		require.NoError(t, err)
 		user2Id = output.ID
 		t.Logf("User 2 ID: %s", user2Id)

@@ -12,16 +12,17 @@ import (
 	"gorm.io/gorm"
 )
 
-type PostUserRegisterMetadata struct {
+// PostUserRegister does not accept authentication, since this is what makes an account in the first place.
+type PostUserMetadata struct {
 	restfulwrapper.HTTPMethodPOST
 	downballotwrapper.UseDatabase
-	_    string                            `api:"httppath:/user/register"`
+	_    string                            `api:"httppath:/user"`
 	_    string                            `api:"doc" description:"Register a new user."`
 	_    string                            `api:"notes" description:"This registers a new user."`
 	Body downballotapi.RegisterUserRequest `api:"body"`
 }
 
-func (a *API) PostUserRegister(ctx context.Context, meta PostUserRegisterMetadata) (output downballotapi.Envelope[downballotapi.RegisterUserResponse], err error) {
+func (a *API) PostUser(ctx context.Context, meta PostUserMetadata) (output downballotapi.Envelope[downballotapi.RegisterUserResponse], err error) {
 	if meta.Body.Name == "" {
 		return output, restfulwrapper.NewAPIBodyError(fmt.Errorf("missing name"))
 	}
@@ -35,9 +36,7 @@ func (a *API) PostUserRegister(ctx context.Context, meta PostUserRegisterMetadat
 	{
 		var testUsers []*schema.User
 		err = meta.DB.Session(&gorm.Session{}).
-			Where(map[string]any{
-				"username": meta.Body.Username,
-			}).
+			Where("username = ?", meta.Body.Username).
 			Find(&testUsers).
 			Error
 		if err != nil {

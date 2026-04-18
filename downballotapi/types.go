@@ -9,4 +9,5 @@ type Envelope[T any] struct {
 	Data    T      `json:"data,omitempty" description:"This is the contents of the response."`
 }
 
+// RawEnvelope represents an envelope with a raw JSON payload.
 type RawEnvelope Envelope[json.RawMessage]

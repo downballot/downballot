@@ -15,24 +15,6 @@ import (
 	"github.com/threatmate/restfulwrapper"
 )
 
-// Create-account does not accept authentication, since this is what makes an account in the first place.
-type PostAuthenticationCreateAccountMetadata struct {
-	restfulwrapper.HTTPMethodPOST
-	_    string                             `api:"httppath:/authentication/create-account"`
-	_    string                             `api:"doc" description:"Create a new account."`
-	_    string                             `api:"notes" description:"This attempts to create a new account."`
-	Body downballotapi.CreateAccountRequest `api:"body"`
-}
-
-func (a *API) PostAuthenticationCreateAccount(ctx context.Context, meta PostAuthenticationCreateAccountMetadata) (output downballotapi.Envelope[downballotapi.CreateAccountResponse], err error) {
-	slog.InfoContext(ctx, fmt.Sprintf("Username: %s", meta.Body.Username))
-	slog.InfoContext(ctx, "Password: ********")
-
-	// TODO: CREATE THE USER
-
-	return output, nil
-}
-
 // Login does not require authentication, since it is what creates authentication.
 // Note, however, that if you hit this endpoint with a token, you will essentially use that token as your credentials and receive a new token.
 type PostAuthenticationLoginMetadata struct {

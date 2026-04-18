@@ -13,17 +13,6 @@ type AuthenticationStatusUser struct {
 	Admin bool   `json:"admin"`
 }
 
-// CreateAccountRequest is used to create an account.
-type CreateAccountRequest struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-}
-
-// CreateAccountResponse is the response from creating an account.
-type CreateAccountResponse struct {
-	Email string `json:"email"`
-}
-
 // LoginRequest is used to sign in with an account.
 type LoginRequest struct {
 	Username string `json:"username" description:"(username/password) The username."`
