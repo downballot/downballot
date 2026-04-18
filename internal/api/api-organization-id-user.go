@@ -15,24 +15,17 @@ import (
 type GetOrganizationIDUserMetadata struct {
 	restfulwrapper.HTTPMethodGET
 	downballotwrapper.RequireAuthenticatedUser
-	_              string `api:"httppath:/organization/{organization_id}/user"`
-	_              string `api:"doc" description:"List the users."`
-	_              string `api:"notes" description:"This lists the users."`
-	OrganizationID string `api:"path:organization_id"`
+	downballotwrapper.UseDatabase
+	hasOrganization
+	_ string `api:"httppath:/organization/{organization_id}/user"`
+	_ string `api:"doc" description:"List the users."`
+	_ string `api:"notes" description:"This lists the users."`
 }
 
 func (a *API) GetOrganizationIDUser(ctx context.Context, meta GetOrganizationIDUserMetadata) (output downballotapi.Envelope[downballotapi.ListUsersResponse], err error) {
-	organization, err := getOrganizationForUser(a.App.DB(), meta.CurrentUser.ID, meta.OrganizationID)
-	if err != nil {
-		return output, fmt.Errorf("could not get organization: %w", err)
-	}
-	if organization == nil {
-		return output, restfulwrapper.NewAPIResponseError(http.StatusUnauthorized, "")
-	}
-
 	var users []*schema.User
-	err = a.App.DB().Session(&gorm.Session{NewDB: true}).
-		Where("id IN (SELECT user_id FROM user_organization_map WHERE organization_id = ?)", organization.ID).
+	err = meta.DB.Session(&gorm.Session{}).
+		Where("id IN (SELECT user_id FROM user_organization_map WHERE organization_id = ?)", meta.Organization.ID).
 		Find(&users).
 		Error
 	if err != nil {
@@ -56,6 +49,7 @@ func (a *API) GetOrganizationIDUser(ctx context.Context, meta GetOrganizationIDU
 type PostOrganizationIDUserMetadata struct {
 	restfulwrapper.HTTPMethodPOST
 	downballotwrapper.RequireAuthenticatedUser
+	downballotwrapper.UseDatabase
 	_              string                                     `api:"httppath:/organization/{organization_id}/user"`
 	_              string                                     `api:"doc" description:"Add a user to an organization."`
 	_              string                                     `api:"notes" description:"This adds a user to an organization."`
@@ -64,7 +58,7 @@ type PostOrganizationIDUserMetadata struct {
 }
 
 func (a *API) PostOrganizationIDUser(ctx context.Context, meta PostOrganizationIDUserMetadata) (output downballotapi.Envelope[downballotapi.AddUserToOrganizationResponse], err error) {
-	organization, err := getOrganizationForUser(a.App.DB(), meta.CurrentUser.ID, meta.OrganizationID)
+	organization, err := getOrganizationForUser(meta.DB, meta.CurrentUser.ID, meta.OrganizationID)
 	if err != nil {
 		return output, err
 	}
@@ -77,7 +71,7 @@ func (a *API) PostOrganizationIDUser(ctx context.Context, meta PostOrganizationI
 	}
 
 	var user schema.User
-	err = a.App.DB().Session(&gorm.Session{NewDB: true}).
+	err = meta.DB.Session(&gorm.Session{}).
 		Where("username = ?", meta.Body.Username).
 		First(&user).
 		Error
@@ -91,7 +85,7 @@ func (a *API) PostOrganizationIDUser(ctx context.Context, meta PostOrganizationI
 	}
 
 	output.Data.UserID = fmt.Sprintf("%d", user.ID)
-	err = a.App.DB().Transaction(func(tx *gorm.DB) error {
+	err = meta.DB.Transaction(func(tx *gorm.DB) error {
 		err = tx.Session(&gorm.Session{NewDB: true}).
 			Create(&userOrganizationMapping).
 			Error

@@ -20,6 +20,7 @@ import (
 type PostOrganizationIDPersonImportMetadata struct {
 	restfulwrapper.HTTPMethodPOST
 	downballotwrapper.RequireAuthenticatedUser
+	downballotwrapper.UseDatabase
 	_              string `api:"httppath:/organization/{organization_id}/person/import"`
 	_              string `api:"doc" description:"Import a new set of persons."`
 	_              string `api:"notes" description:"This imports a new set of persons."`
@@ -28,7 +29,7 @@ type PostOrganizationIDPersonImportMetadata struct {
 }
 
 func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrganizationIDPersonImportMetadata) (output downballotapi.Envelope[downballotapi.ImportPersonResponse], err error) {
-	organization, err := getOrganizationForUser(a.App.DB(), meta.CurrentUser.ID, meta.OrganizationID)
+	organization, err := getOrganizationForUser(meta.DB, meta.CurrentUser.ID, meta.OrganizationID)
 	if err != nil {
 		return output, err
 	}
@@ -118,7 +119,7 @@ func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrgan
 	}
 
 	output.Data.Records = uint64(len(persons))
-	err = a.App.DB().Transaction(func(tx *gorm.DB) error {
+	err = meta.DB.Transaction(func(tx *gorm.DB) error {
 		err := tx.Session(&gorm.Session{NewDB: true}).
 			Create(&persons).
 			Error
@@ -156,22 +157,15 @@ func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrgan
 type GetOrganizationIDPersonMetadata struct {
 	restfulwrapper.HTTPMethodGET
 	downballotwrapper.RequireAuthenticatedUser
-	_              string `api:"httppath:/organization/{organization_id}/person"`
-	_              string `api:"doc" description:"List the persons."`
-	_              string `api:"notes" description:"This lists the persons."`
-	OrganizationID string `api:"path:organization_id"`
-	Filter         string `api:"query:filter"`
+	downballotwrapper.UseDatabase
+	hasOrganization
+	_      string `api:"httppath:/organization/{organization_id}/person"`
+	_      string `api:"doc" description:"List the persons."`
+	_      string `api:"notes" description:"This lists the persons."`
+	Filter string `api:"query:filter"`
 }
 
 func (a *API) GetOrganizationIDPerson(ctx context.Context, meta GetOrganizationIDPersonMetadata) (output downballotapi.Envelope[downballotapi.ListPersonsResponse], err error) {
-	organization, err := getOrganizationForUser(a.App.DB(), meta.CurrentUser.ID, meta.OrganizationID)
-	if err != nil {
-		return output, err
-	}
-	if organization == nil {
-		return output, restfulwrapper.NewAPIResponseError(http.StatusUnauthorized, "")
-	}
-
 	logrus.WithContext(ctx).Infof("Filter string: %s", meta.Filter)
 	clause, err := filter.Parse(ctx, meta.Filter)
 	if err != nil {
@@ -179,9 +173,9 @@ func (a *API) GetOrganizationIDPerson(ctx context.Context, meta GetOrganizationI
 	}
 
 	var persons []*schema.Person
-	query := a.App.DB().Session(&gorm.Session{NewDB: true})
+	query := meta.DB.Session(&gorm.Session{})
 	if meta.CurrentUser.ID != "0" { // TODO: "0" is the system token.
-		query = query.Where("organization_id = ?", organization.ID)
+		query = query.Where("organization_id = ?", meta.Organization.ID)
 	}
 	err = query.
 		Find(&persons).
@@ -193,8 +187,8 @@ func (a *API) GetOrganizationIDPerson(ctx context.Context, meta GetOrganizationI
 	personFieldsMap := map[uint64][]*schema.PersonField{}
 	{
 		var fields []*schema.PersonField
-		err = a.App.DB().Session(&gorm.Session{NewDB: true}).
-			Where("person_id IN (SELECT id FROM person WHERE organization_id = ?)", organization.ID).
+		err = meta.DB.Session(&gorm.Session{}).
+			Where("person_id IN (SELECT id FROM person WHERE organization_id = ?)", meta.Organization.ID).
 			Find(&fields).
 			Error
 		if err != nil {
@@ -205,7 +199,7 @@ func (a *API) GetOrganizationIDPerson(ctx context.Context, meta GetOrganizationI
 		}
 	}
 
-	hierarchies, err := getGroupHierarchiesForUser(a.App.DB(), meta.CurrentUser.ID, organization.ID)
+	hierarchies, err := getGroupHierarchiesForUser(meta.DB, meta.CurrentUser.ID, meta.Organization.ID)
 	if err != nil {
 		return output, err
 	}

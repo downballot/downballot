@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/WinterYukky/gorm-extra-clause-plugin/exclause"
 	"github.com/downballot/downballot/internal/schema"
 	"github.com/emicklei/go-restful/v3"
 	"github.com/tekkamanendless/httperror"
@@ -134,6 +135,53 @@ func (c Config) filterAppendUserInformation(req *restful.Request, resp *restful.
 		slog.DebugContext(ctx, "We were not able to authenticate the user.")
 	} else {
 		slog.DebugContext(ctx, fmt.Sprintf("Authenticated user: %+v", *user))
+
+		// Mask the "organization" table.
+		{
+			// This is the name of the real "organization" table.
+			//
+			// MySQL is smart enough to know that we're not referring to a table that we haven't created yet, but SQLite is not.
+			//
+			// SQLite will fail with this error: SQL logic error: circular reference: organization (1)
+			// So, to work around that, we're going to insert the schema name, which is "main", so that SQLite doesn't get confused.
+			organizationTableName := schema.Organization{}.TableName()
+			originalOrganizationTableName := organizationTableName
+			switch db.Dialector.Name() {
+			case "sqlite":
+				originalOrganizationTableName = "main." + organizationTableName
+			}
+
+			subQuery := db.Session(&gorm.Session{NewDB: true, Initialized: true}).
+				Select(strings.Join([]string{
+					"organization.id",
+					"organization.name",
+				}, ", ")).
+				Table(originalOrganizationTableName).
+				InnerJoins("INNER JOIN user_organization_map ON user_organization_map.organization_id = organization.id")
+			if user.SystemAdmin {
+				// Don't do anything else.
+			} else {
+				subQuery = subQuery.Where("user_organization_map.user_id = ?", user.ID)
+			}
+
+			withClause := exclause.With{
+				Recursive: false,
+				CTEs: []exclause.CTE{
+					{
+						Name: organizationTableName,
+						Columns: []string{
+							"id",
+							"name",
+						},
+						Subquery: exclause.Subquery{
+							DB: subQuery,
+						},
+					},
+				},
+			}
+
+			db = db.Clauses(withClause)
+		}
 	}
 
 	req.SetAttribute(attributeUser, user)
@@ -159,7 +207,7 @@ func (c Config) findUserInformationFromToken(db *gorm.DB, tokenString string) (*
 
 	// Validate the user.
 	var users []*schema.User
-	err = db.Session(&gorm.Session{NewDB: true}).
+	err = db.Session(&gorm.Session{}).
 		Where("username = ?", claims.Email).
 		First(&users).
 		Error

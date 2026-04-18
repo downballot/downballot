@@ -14,6 +14,7 @@ import (
 type GetOrganizationMetadata struct {
 	restfulwrapper.HTTPMethodGET
 	downballotwrapper.RequireAuthenticatedUser
+	downballotwrapper.UseDatabase
 	_ string `api:"httppath:/organization"`
 	_ string `api:"doc" description:"List the organizations."`
 	_ string `api:"notes" description:"This lists the organizations."`
@@ -21,10 +22,10 @@ type GetOrganizationMetadata struct {
 
 func (a *API) GetOrganization(ctx context.Context, meta GetOrganizationMetadata) (output downballotapi.Envelope[downballotapi.ListOrganizationsResponse], err error) {
 	var organizations []*schema.Organization
-	query := a.App.DB().Session(&gorm.Session{NewDB: true})
+	query := meta.DB.Session(&gorm.Session{})
 	if meta.CurrentUser.ID != "0" { // "0" is the system token.
 		query = query.
-			Where("id IN (?)", a.App.DB().Session(&gorm.Session{NewDB: true}).
+			Where("id IN (?)", meta.DB.Session(&gorm.Session{NewDB: true}).
 				Table(schema.UserOrganizationMap{}.TableName()).
 				Select("id").
 				Where("user_id = ?", meta.CurrentUser.ID),

@@ -15,6 +15,7 @@ import (
 type PostOrganizationRegisterMetadata struct {
 	restfulwrapper.HTTPMethodPOST
 	downballotwrapper.RequireAuthenticatedUser
+	downballotwrapper.UseDatabase
 	_    string                                    `api:"httppath:/organization/register"`
 	_    string                                    `api:"doc" description:"Register a new organization."`
 	_    string                                    `api:"notes" description:"This registers a new organization."`
@@ -39,7 +40,7 @@ func (a *API) PostOrganizationRegister(ctx context.Context, meta PostOrganizatio
 	}
 
 	var owner schema.User
-	err = a.App.DB().Session(&gorm.Session{NewDB: true}).
+	err = meta.DB.Session(&gorm.Session{}).
 		Where("id = ?", meta.Body.OwnerID).
 		First(&owner).
 		Error
@@ -51,7 +52,7 @@ func (a *API) PostOrganizationRegister(ctx context.Context, meta PostOrganizatio
 		Name: meta.Body.Name,
 	}
 
-	err = a.App.DB().Transaction(func(tx *gorm.DB) error {
+	err = meta.DB.Transaction(func(tx *gorm.DB) error {
 		err = tx.Session(&gorm.Session{NewDB: true}).
 			Create(&organization).
 			Error

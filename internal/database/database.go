@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"gorm.io/driver/sqlite"
+	gormextraclauseplugin "github.com/WinterYukky/gorm-extra-clause-plugin"
+	_ "github.com/threatmate/sqlite"
+	"github.com/threatmate/sqlite/driver/gorm/sqlite"
 	"gorm.io/gorm"
 )
 
@@ -23,6 +25,11 @@ func New(ctx context.Context, driverName string, connectionString string) (*gorm
 		}
 	default:
 		return nil, fmt.Errorf("invalid database driver: %s", driverName)
+	}
+
+	err = db.Use(gormextraclauseplugin.New())
+	if err != nil {
+		return nil, err
 	}
 
 	db = db.Debug()

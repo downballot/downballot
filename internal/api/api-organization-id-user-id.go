@@ -15,26 +15,19 @@ import (
 type PostOrganizationIDUserIDGroupMetadata struct {
 	restfulwrapper.HTTPMethodPOST
 	downballotwrapper.RequireAuthenticatedUser
-	_              string                              `api:"httppath:/organization/{organization_id}/user/{user_id}/group"`
-	_              string                              `api:"doc" description:"Add a user to a group."`
-	_              string                              `api:"notes" description:"This adds a user to a group."`
-	Body           downballotapi.AddUserToGroupRequest `api:"body"`
-	OrganizationID string                              `api:"path:organization_id"`
-	UserID         string                              `api:"path:user_id"`
+	downballotwrapper.UseDatabase
+	hasOrganization
+	_      string                              `api:"httppath:/organization/{organization_id}/user/{user_id}/group"`
+	_      string                              `api:"doc" description:"Add a user to a group."`
+	_      string                              `api:"notes" description:"This adds a user to a group."`
+	Body   downballotapi.AddUserToGroupRequest `api:"body"`
+	UserID string                              `api:"path:user_id"`
 }
 
 func (a *API) PostOrganizationIDUserIDGroup(ctx context.Context, meta PostOrganizationIDUserIDGroupMetadata) (output downballotapi.Envelope[downballotapi.AddUserToGroupResponse], err error) {
-	organization, err := getOrganizationForUser(a.App.DB(), meta.CurrentUser.ID, meta.OrganizationID)
-	if err != nil {
-		return output, err
-	}
-	if organization == nil {
-		return output, restfulwrapper.NewAPIResponseError(http.StatusUnauthorized, "")
-	}
-
 	var user *schema.User
 	{
-		users, err := getUsersForOrganization(a.App.DB(), organization.ID, map[string]any{"id": meta.UserID})
+		users, err := getUsersForOrganization(meta.DB, meta.Organization.ID, map[string]any{"id": meta.UserID})
 		if err != nil {
 			return output, err
 		}
@@ -51,7 +44,7 @@ func (a *API) PostOrganizationIDUserIDGroup(ctx context.Context, meta PostOrgani
 	}
 	var group *schema.Group
 	{
-		groups, err := getGroupsForUser(a.App.DB(), meta.CurrentUser.ID, meta.OrganizationID, nil)
+		groups, err := getGroupsForUser(meta.DB, meta.CurrentUser.ID, meta.OrganizationID, nil)
 		if err != nil {
 			return output, err
 		}
@@ -72,7 +65,7 @@ func (a *API) PostOrganizationIDUserIDGroup(ctx context.Context, meta PostOrgani
 	}
 
 	output.Data.GroupID = fmt.Sprintf("%d", group.ID)
-	err = a.App.DB().Transaction(func(tx *gorm.DB) error {
+	err = meta.DB.Transaction(func(tx *gorm.DB) error {
 		err = tx.Session(&gorm.Session{NewDB: true}).
 			Create(&userGroupMapping).
 			Error

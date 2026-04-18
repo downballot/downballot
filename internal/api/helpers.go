@@ -7,9 +7,8 @@ import (
 
 func getOrganizationForUser(db *gorm.DB, userID interface{}, organizationID interface{}) (*schema.Organization, error) {
 	var organizations []*schema.Organization
-	err := db.Session(&gorm.Session{NewDB: true}).
+	err := db.Session(&gorm.Session{}).
 		Where("id = ?", organizationID).
-		Where("id IN (SELECT organization_id FROM user_organization_map WHERE user_id = ?)", userID).
 		Find(&organizations).
 		Error
 	if err != nil {
@@ -23,7 +22,7 @@ func getOrganizationForUser(db *gorm.DB, userID interface{}, organizationID inte
 
 func getGroupsForUser(db *gorm.DB, userID interface{}, organizationID interface{}, filters map[string]interface{}) ([]*schema.Group, error) {
 	var groups []*schema.Group
-	query := db.Session(&gorm.Session{NewDB: true}).
+	query := db.Session(&gorm.Session{}).
 		Where("organization_id = ?", organizationID).
 		Where("id IN (SELECT group_id FROM user_group_map WHERE user_id = ?)", userID)
 	for key, value := range filters {
@@ -47,7 +46,7 @@ func getGroupHierarchiesForUser(db *gorm.DB, userID interface{}, organizationID 
 	groupsByID := map[uint64]*schema.Group{}
 	{
 		var groups []*schema.Group
-		err := db.Session(&gorm.Session{NewDB: true}).
+		err := db.Session(&gorm.Session{}).
 			Where("organization_id = ?", organizationID).
 			Find(&groups).
 			Error
@@ -66,7 +65,7 @@ func getGroupHierarchiesForUser(db *gorm.DB, userID interface{}, organizationID 
 	userGroups := []*schema.Group{}
 	{
 		var groups []*schema.Group
-		err := db.Session(&gorm.Session{NewDB: true}).
+		err := db.Session(&gorm.Session{}).
 			Where("organization_id = ?", organizationID).
 			Where("id IN (SELECT group_id FROM user_group_map WHERE user_id = ?)", userID).
 			Find(&groups).
@@ -98,7 +97,7 @@ func getGroupHierarchiesForUser(db *gorm.DB, userID interface{}, organizationID 
 
 func getUsersForOrganization(db *gorm.DB, organizationID interface{}, filters map[string]interface{}) ([]*schema.User, error) {
 	var users []*schema.User
-	query := db.Session(&gorm.Session{NewDB: true}).
+	query := db.Session(&gorm.Session{}).
 		Where("id IN (SELECT DISTINCT user_id FROM user_organization_map WHERE organization_id = ?)", organizationID)
 	for key, value := range filters {
 		if value == nil {

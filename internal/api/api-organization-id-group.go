@@ -15,22 +15,15 @@ import (
 type PostOrganizationIDGroupMetadata struct {
 	restfulwrapper.HTTPMethodPOST
 	downballotwrapper.RequireAuthenticatedUser
-	_              string                           `api:"httppath:/organization/{organization_id}/group"`
-	_              string                           `api:"doc" description:"Create a new group."`
-	_              string                           `api:"notes" description:"This creates a new group."`
-	Body           downballotapi.CreateGroupRequest `api:"body"`
-	OrganizationID string                           `api:"path:organization_id"`
+	downballotwrapper.UseDatabase
+	hasOrganization
+	_    string                           `api:"httppath:/organization/{organization_id}/group"`
+	_    string                           `api:"doc" description:"Create a new group."`
+	_    string                           `api:"notes" description:"This creates a new group."`
+	Body downballotapi.CreateGroupRequest `api:"body"`
 }
 
 func (a *API) PostOrganizationIDGroup(ctx context.Context, meta PostOrganizationIDGroupMetadata) (output downballotapi.Envelope[downballotapi.CreateGroupResponse], err error) {
-	organization, err := getOrganizationForUser(a.App.DB(), meta.CurrentUser.ID, meta.OrganizationID)
-	if err != nil {
-		return output, err
-	}
-	if organization == nil {
-		return output, restfulwrapper.NewAPIResponseError(http.StatusUnauthorized, "")
-	}
-
 	if meta.Body.Name == "" {
 		return output, restfulwrapper.NewAPIBodyError(fmt.Errorf("missing name"))
 	}
@@ -38,7 +31,7 @@ func (a *API) PostOrganizationIDGroup(ctx context.Context, meta PostOrganization
 		return output, restfulwrapper.NewAPIBodyError(fmt.Errorf("missing parent_id"))
 	}
 
-	groups, err := getGroupsForUser(a.App.DB(), meta.CurrentUser.ID, meta.OrganizationID, nil)
+	groups, err := getGroupsForUser(meta.DB, meta.CurrentUser.ID, meta.OrganizationID, nil)
 	if err != nil {
 		return output, err
 	}
@@ -54,7 +47,7 @@ func (a *API) PostOrganizationIDGroup(ctx context.Context, meta PostOrganization
 	}
 
 	var owner schema.User
-	err = a.App.DB().Session(&gorm.Session{NewDB: true}).
+	err = meta.DB.Session(&gorm.Session{}).
 		Where("id = ?", meta.CurrentUser.ID).
 		First(&owner).
 		Error
@@ -63,13 +56,13 @@ func (a *API) PostOrganizationIDGroup(ctx context.Context, meta PostOrganization
 	}
 
 	group := schema.Group{
-		OrganizationID: organization.ID,
+		OrganizationID: meta.Organization.ID,
 		Name:           meta.Body.Name,
 		ParentID:       &parentGroup.ID,
 		Filter:         meta.Body.Filter,
 	}
 
-	err = a.App.DB().Transaction(func(tx *gorm.DB) error {
+	err = meta.DB.Transaction(func(tx *gorm.DB) error {
 		err = tx.Session(&gorm.Session{NewDB: true}).
 			Create(&group).
 			Error
@@ -107,6 +100,7 @@ func (a *API) PostOrganizationIDGroup(ctx context.Context, meta PostOrganization
 type GetOrganizationIDGroupMetadata struct {
 	restfulwrapper.HTTPMethodGET
 	downballotwrapper.RequireAuthenticatedUser
+	downballotwrapper.UseDatabase
 	_              string `api:"httppath:/organization/{organization_id}/group"`
 	_              string `api:"doc" description:"List the groups."`
 	_              string `api:"notes" description:"This lists the groups."`
@@ -114,7 +108,7 @@ type GetOrganizationIDGroupMetadata struct {
 }
 
 func (a *API) GetOrganizationIDGroup(ctx context.Context, meta GetOrganizationIDGroupMetadata) (output downballotapi.Envelope[downballotapi.ListGroupsResponse], err error) {
-	organization, err := getOrganizationForUser(a.App.DB(), meta.CurrentUser.ID, meta.OrganizationID)
+	organization, err := getOrganizationForUser(meta.DB, meta.CurrentUser.ID, meta.OrganizationID)
 	if err != nil {
 		return output, err
 	}
@@ -122,7 +116,7 @@ func (a *API) GetOrganizationIDGroup(ctx context.Context, meta GetOrganizationID
 		return output, restfulwrapper.NewAPIResponseError(http.StatusUnauthorized, "")
 	}
 
-	groups, err := getGroupsForUser(a.App.DB(), meta.CurrentUser.ID, meta.OrganizationID, nil)
+	groups, err := getGroupsForUser(meta.DB, meta.CurrentUser.ID, meta.OrganizationID, nil)
 	if err != nil {
 		return output, err
 	}

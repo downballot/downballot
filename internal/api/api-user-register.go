@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/downballot/downballot/downballotapi"
+	"github.com/downballot/downballot/internal/api/downballotwrapper"
 	"github.com/downballot/downballot/internal/schema"
 	"github.com/threatmate/restfulwrapper"
 	"gorm.io/gorm"
@@ -13,6 +14,7 @@ import (
 
 type PostUserRegisterMetadata struct {
 	restfulwrapper.HTTPMethodPOST
+	downballotwrapper.UseDatabase
 	_    string                            `api:"httppath:/user/register"`
 	_    string                            `api:"doc" description:"Register a new user."`
 	_    string                            `api:"notes" description:"This registers a new user."`
@@ -32,7 +34,7 @@ func (a *API) PostUserRegister(ctx context.Context, meta PostUserRegisterMetadat
 
 	{
 		var testUsers []*schema.User
-		err = a.App.DB().Session(&gorm.Session{NewDB: true}).
+		err = meta.DB.Session(&gorm.Session{}).
 			Where(map[string]interface{}{
 				"username": meta.Body.Username,
 			}).
@@ -48,7 +50,7 @@ func (a *API) PostUserRegister(ctx context.Context, meta PostUserRegisterMetadat
 
 	output.Message = "OK"
 	output.Success = true
-	err = a.App.DB().Transaction(func(tx *gorm.DB) error {
+	err = meta.DB.Transaction(func(tx *gorm.DB) error {
 		user := schema.User{
 			Name:     meta.Body.Name,
 			Username: meta.Body.Username,
