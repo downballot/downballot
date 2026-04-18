@@ -5,21 +5,6 @@ import (
 	"gorm.io/gorm"
 )
 
-func getOrganizationForUser(db *gorm.DB, userID interface{}, organizationID interface{}) (*schema.Organization, error) {
-	var organizations []*schema.Organization
-	err := db.Session(&gorm.Session{}).
-		Where("id = ?", organizationID).
-		Find(&organizations).
-		Error
-	if err != nil {
-		return nil, err
-	}
-	if len(organizations) == 0 {
-		return nil, nil
-	}
-	return organizations[0], nil
-}
-
 func getGroupsForUser(db *gorm.DB, userID interface{}, organizationID interface{}, filters map[string]interface{}) ([]*schema.Group, error) {
 	var groups []*schema.Group
 	query := db.Session(&gorm.Session{}).
@@ -93,24 +78,4 @@ func getGroupHierarchiesForUser(db *gorm.DB, userID interface{}, organizationID 
 		hierarchies = append(hierarchies, hierarchy)
 	}
 	return hierarchies, nil
-}
-
-func getUsersForOrganization(db *gorm.DB, organizationID interface{}, filters map[string]interface{}) ([]*schema.User, error) {
-	var users []*schema.User
-	query := db.Session(&gorm.Session{}).
-		Where("id IN (SELECT DISTINCT user_id FROM user_organization_map WHERE organization_id = ?)", organizationID)
-	for key, value := range filters {
-		if value == nil {
-			query = query.Where(key + " IS NULL")
-		} else {
-			query = query.Where(key+" = ?", value)
-		}
-	}
-	err := query.
-		Find(&users).
-		Error
-	if err != nil {
-		return nil, err
-	}
-	return users, nil
 }

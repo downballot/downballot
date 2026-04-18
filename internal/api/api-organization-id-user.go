@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"fmt"
-	"net/http"
 
 	"github.com/downballot/downballot/downballotapi"
 	"github.com/downballot/downballot/internal/api/downballotwrapper"
@@ -50,22 +49,14 @@ type PostOrganizationIDUserMetadata struct {
 	restfulwrapper.HTTPMethodPOST
 	downballotwrapper.RequireAuthenticatedUser
 	downballotwrapper.UseDatabase
-	_              string                                     `api:"httppath:/organization/{organization_id}/user"`
-	_              string                                     `api:"doc" description:"Add a user to an organization."`
-	_              string                                     `api:"notes" description:"This adds a user to an organization."`
-	Body           downballotapi.AddUserToOrganizationRequest `api:"body"`
-	OrganizationID string                                     `api:"path:organization_id"`
+	hasOrganization
+	_    string                                     `api:"httppath:/organization/{organization_id}/user"`
+	_    string                                     `api:"doc" description:"Add a user to an organization."`
+	_    string                                     `api:"notes" description:"This adds a user to an organization."`
+	Body downballotapi.AddUserToOrganizationRequest `api:"body"`
 }
 
 func (a *API) PostOrganizationIDUser(ctx context.Context, meta PostOrganizationIDUserMetadata) (output downballotapi.Envelope[downballotapi.AddUserToOrganizationResponse], err error) {
-	organization, err := getOrganizationForUser(meta.DB, meta.CurrentUser.ID, meta.OrganizationID)
-	if err != nil {
-		return output, err
-	}
-	if organization == nil {
-		return output, restfulwrapper.NewAPIResponseError(http.StatusUnauthorized, "")
-	}
-
 	if meta.Body.Username == "" {
 		return output, restfulwrapper.NewAPIBodyError(fmt.Errorf("missing username"))
 	}
@@ -81,7 +72,7 @@ func (a *API) PostOrganizationIDUser(ctx context.Context, meta PostOrganizationI
 
 	userOrganizationMapping := schema.UserOrganizationMap{
 		UserID:         user.ID,
-		OrganizationID: organization.ID,
+		OrganizationID: meta.Organization.ID,
 	}
 
 	output.Data.UserID = fmt.Sprintf("%d", user.ID)

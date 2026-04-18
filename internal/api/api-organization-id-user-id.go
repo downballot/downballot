@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"fmt"
-	"net/http"
 
 	"github.com/downballot/downballot/downballotapi"
 	"github.com/downballot/downballot/internal/api/downballotwrapper"
@@ -12,33 +11,24 @@ import (
 	"gorm.io/gorm"
 )
 
+type hasUser struct {
+	UserID string      `api:"path:user_id" description:"The user ID"`
+	User   schema.User `api:"database.query:where:id = ? AND id IN (SELECT DISTINCT user_id FROM user_organization_map WHERE organization_id IN (SELECT id FROM organization)),UserID"`
+}
+
 type PostOrganizationIDUserIDGroupMetadata struct {
 	restfulwrapper.HTTPMethodPOST
 	downballotwrapper.RequireAuthenticatedUser
 	downballotwrapper.UseDatabase
 	hasOrganization
-	_      string                              `api:"httppath:/organization/{organization_id}/user/{user_id}/group"`
-	_      string                              `api:"doc" description:"Add a user to a group."`
-	_      string                              `api:"notes" description:"This adds a user to a group."`
-	Body   downballotapi.AddUserToGroupRequest `api:"body"`
-	UserID string                              `api:"path:user_id"`
+	hasUser
+	_    string                              `api:"httppath:/organization/{organization_id}/user/{user_id}/group"`
+	_    string                              `api:"doc" description:"Add a user to a group."`
+	_    string                              `api:"notes" description:"This adds a user to a group."`
+	Body downballotapi.AddUserToGroupRequest `api:"body"`
 }
 
 func (a *API) PostOrganizationIDUserIDGroup(ctx context.Context, meta PostOrganizationIDUserIDGroupMetadata) (output downballotapi.Envelope[downballotapi.AddUserToGroupResponse], err error) {
-	var user *schema.User
-	{
-		users, err := getUsersForOrganization(meta.DB, meta.Organization.ID, map[string]any{"id": meta.UserID})
-		if err != nil {
-			return output, err
-		}
-		if len(users) > 0 {
-			user = users[0]
-		}
-	}
-	if user == nil {
-		return output, restfulwrapper.NewAPIResponseError(http.StatusUnauthorized, "")
-	}
-
 	if meta.Body.GroupID == "" {
 		return output, restfulwrapper.NewAPIBodyError(fmt.Errorf("missing group_id"))
 	}
@@ -60,7 +50,7 @@ func (a *API) PostOrganizationIDUserIDGroup(ctx context.Context, meta PostOrgani
 	}
 
 	userGroupMapping := schema.UserGroupMap{
-		UserID:  user.ID,
+		UserID:  meta.User.ID,
 		GroupID: group.ID,
 	}
 

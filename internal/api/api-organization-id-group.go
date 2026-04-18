@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"fmt"
-	"net/http"
 
 	"github.com/downballot/downballot/downballotapi"
 	"github.com/downballot/downballot/internal/api/downballotwrapper"
@@ -101,21 +100,13 @@ type GetOrganizationIDGroupMetadata struct {
 	restfulwrapper.HTTPMethodGET
 	downballotwrapper.RequireAuthenticatedUser
 	downballotwrapper.UseDatabase
-	_              string `api:"httppath:/organization/{organization_id}/group"`
-	_              string `api:"doc" description:"List the groups."`
-	_              string `api:"notes" description:"This lists the groups."`
-	OrganizationID string `api:"path:organization_id"`
+	hasOrganization
+	_ string `api:"httppath:/organization/{organization_id}/group"`
+	_ string `api:"doc" description:"List the groups."`
+	_ string `api:"notes" description:"This lists the groups."`
 }
 
 func (a *API) GetOrganizationIDGroup(ctx context.Context, meta GetOrganizationIDGroupMetadata) (output downballotapi.Envelope[downballotapi.ListGroupsResponse], err error) {
-	organization, err := getOrganizationForUser(meta.DB, meta.CurrentUser.ID, meta.OrganizationID)
-	if err != nil {
-		return output, err
-	}
-	if organization == nil {
-		return output, restfulwrapper.NewAPIResponseError(http.StatusUnauthorized, "")
-	}
-
 	groups, err := getGroupsForUser(meta.DB, meta.CurrentUser.ID, meta.OrganizationID, nil)
 	if err != nil {
 		return output, err

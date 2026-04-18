@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/csv"
 	"fmt"
-	"net/http"
 	"strings"
 
 	"github.com/downballot/downballot/downballotapi"
@@ -21,22 +20,14 @@ type PostOrganizationIDPersonImportMetadata struct {
 	restfulwrapper.HTTPMethodPOST
 	downballotwrapper.RequireAuthenticatedUser
 	downballotwrapper.UseDatabase
-	_              string `api:"httppath:/organization/{organization_id}/person/import"`
-	_              string `api:"doc" description:"Import a new set of persons."`
-	_              string `api:"notes" description:"This imports a new set of persons."`
-	Body           []byte `api:"body:consumes:application/octet-stream"`
-	OrganizationID string `api:"path:organization_id"`
+	hasOrganization
+	_    string `api:"httppath:/organization/{organization_id}/person/import"`
+	_    string `api:"doc" description:"Import a new set of persons."`
+	_    string `api:"notes" description:"This imports a new set of persons."`
+	Body []byte `api:"body:consumes:application/octet-stream"`
 }
 
 func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrganizationIDPersonImportMetadata) (output downballotapi.Envelope[downballotapi.ImportPersonResponse], err error) {
-	organization, err := getOrganizationForUser(meta.DB, meta.CurrentUser.ID, meta.OrganizationID)
-	if err != nil {
-		return output, err
-	}
-	if organization == nil {
-		return output, restfulwrapper.NewAPIResponseError(http.StatusUnauthorized, "")
-	}
-
 	contents := meta.Body
 	logrus.WithContext(ctx).Infof("Contents: (%d)", len(contents))
 
@@ -110,7 +101,7 @@ func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrgan
 		// Build the mailing address.
 
 		person := &schema.Person{
-			OrganizationID: organization.ID,
+			OrganizationID: meta.Organization.ID,
 		}
 		person.VoterID = data["::"+ColumnVoterID]
 		person.Fields = data
