@@ -35,7 +35,7 @@ func (a *API) PostUserRegister(ctx context.Context, meta PostUserRegisterMetadat
 	{
 		var testUsers []*schema.User
 		err = meta.DB.Session(&gorm.Session{}).
-			Where(map[string]interface{}{
+			Where(map[string]any{
 				"username": meta.Body.Username,
 			}).
 			Find(&testUsers).

@@ -14,7 +14,7 @@ import (
 func (c Config) ValidateToken(tokenString string) (apitoken.TokenClaims, error) {
 	var claims apitoken.TokenClaims
 	_, err := jwt.ParseWithClaims(tokenString, &claims,
-		func(t *jwt.Token) (interface{}, error) {
+		func(t *jwt.Token) (any, error) {
 			if c.JWTSecret != nil {
 				return c.JWTSecret, nil
 			}

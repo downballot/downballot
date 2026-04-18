@@ -87,7 +87,7 @@ func (a *API) PostAuthenticationLogin(ctx context.Context, meta PostAuthenticati
 	// Generate a token for the user.
 
 	var signingMethod jwt.SigningMethod
-	var signingKey interface{}
+	var signingKey any
 
 	if a.jwtSecret != nil {
 		signingMethod = jwt.SigningMethodHS512

@@ -5,7 +5,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func getGroupsForUser(db *gorm.DB, userID interface{}, organizationID interface{}, filters map[string]interface{}) ([]*schema.Group, error) {
+func getGroupsForUser(db *gorm.DB, userID any, organizationID any, filters map[string]any) ([]*schema.Group, error) {
 	var groups []*schema.Group
 	query := db.Session(&gorm.Session{}).
 		Where("organization_id = ?", organizationID).
@@ -26,7 +26,7 @@ func getGroupsForUser(db *gorm.DB, userID interface{}, organizationID interface{
 	return groups, nil
 }
 
-func getGroupHierarchiesForUser(db *gorm.DB, userID interface{}, organizationID interface{}) ([][]*schema.Group, error) {
+func getGroupHierarchiesForUser(db *gorm.DB, userID any, organizationID any) ([][]*schema.Group, error) {
 	groupChildrenMap := map[uint64][]*schema.Group{}
 	groupsByID := map[uint64]*schema.Group{}
 	{
