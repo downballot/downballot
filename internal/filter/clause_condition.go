@@ -13,6 +13,8 @@ type ClauseCondition struct {
 	Value     string
 }
 
+var _ Clause = (*ClauseCondition)(nil)
+
 // String returns the canonical form of the clause.
 func (c ClauseCondition) String() string {
 	output := QuoteIfNecessary(c.Name) + " " + c.Operation + " " + QuoteIfNecessary(c.Value)

@@ -192,10 +192,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	err = migrator.Migrate(db)
-	if err != nil {
-		slog.ErrorContext(ctx, fmt.Sprintf("Could not migrate database: %v", err))
-		os.Exit(1)
+	slog.InfoContext(ctx, fmt.Sprintf("DB_MIGRATE: %s", os.Getenv("DB_MIGRATE")))
+	if os.Getenv("DB_MIGRATE") == "true" {
+		slog.InfoContext(ctx, "Migrating the database...")
+		err = migrator.Migrate(db)
+		if err != nil {
+			slog.ErrorContext(ctx, fmt.Sprintf("Could not migrate database: %v", err))
+			os.Exit(1)
+		}
 	}
 
 	app := application.New(db)

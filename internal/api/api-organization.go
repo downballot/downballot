@@ -16,14 +16,18 @@ type GetOrganizationMetadata struct {
 	restfulwrapper.HTTPMethodGET
 	downballotwrapper.RequireAuthenticatedUser
 	downballotwrapper.UseDatabase
-	_ string `api:"httppath:/organization"`
-	_ string `api:"doc" description:"List the organizations."`
-	_ string `api:"notes" description:"This lists the organizations."`
+	_    string  `api:"httppath:/organization"`
+	_    string  `api:"doc" description:"List the organizations."`
+	_    string  `api:"notes" description:"This lists the organizations."`
+	Name *string `api:"query:name"`
 }
 
 func (a *API) GetOrganization(ctx context.Context, meta GetOrganizationMetadata) (output downballotapi.Envelope[downballotapi.ListOrganizationsResponse], err error) {
 	var organizations []*schema.Organization
 	query := meta.DB.Session(&gorm.Session{})
+	if meta.Name != nil {
+		query = query.Where("name = ?", *meta.Name)
+	}
 	err = query.
 		Find(&organizations).
 		Error

@@ -21,9 +21,9 @@ func (Organization) TableName() string {
 type Group struct {
 	ID             uint64        `gorm:"column:id;primaryKey;not null;autoIncrement"`
 	OrganizationID uint64        `gorm:"column:organization_id;not null"`
-	Organization   *Organization `json:"-" gorm:"constraint:fk_group_organization,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:organization_id;references:id"`
+	Organization   *Organization `json:"-" gorm:"belongsTo;constraint:fk_group_organization,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:organization_id;references:id"`
 	ParentID       *uint64       `gorm:"column:parent_id"`
-	Parent         *Group        `json:"-" gorm:"constraint:fk_group_parent,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:parent_id;references:id"`
+	Parent         *Group        `json:"-" gorm:"belongsTo;constraint:fk_group_parent,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:parent_id;references:id"`
 	Name           string        `gorm:"column:name;size:256"`
 	Filter         string        `gorm:"column:filter"`
 }
@@ -53,9 +53,9 @@ func (User) TableName() string {
 type UserGroupMap struct {
 	ID      uint64 `gorm:"column:id;primaryKey;not null;autoIncrement"`
 	UserID  uint64 `gorm:"column:user_id;not null"`
-	User    *User  `json:"-" gorm:"constraint:fk_user_group_map_user,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:user_id;references:id"`
+	User    *User  `json:"-" gorm:"belongsTo;constraint:fk_user_group_map_user,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:user_id;references:id"`
 	GroupID uint64 `gorm:"column:group_id;not null"`
-	Group   *Group `json:"-" gorm:"constraint:fk_user_group_map_group,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:group_id;references:id"`
+	Group   *Group `json:"-" gorm:"belongsTo;constraint:fk_user_group_map_group,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:group_id;references:id"`
 }
 
 func (UserGroupMap) TableName() string {
@@ -66,9 +66,9 @@ func (UserGroupMap) TableName() string {
 type UserOrganizationMap struct {
 	ID             uint64        `gorm:"column:id;primaryKey;not null;autoIncrement"`
 	UserID         uint64        `gorm:"column:user_id;not null"`
-	User           *User         `json:"-" gorm:"constraint:fk_user_organization_map_user,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:user_id;references:id"`
+	User           *User         `json:"-" gorm:"belongsTo;constraint:fk_user_organization_map_user,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:user_id;references:id"`
 	OrganizationID uint64        `gorm:"column:organization_id;not null"`
-	Organization   *Organization `json:"-" gorm:"constraint:fk_user_organization_map_organization,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:organization_id;references:id"`
+	Organization   *Organization `json:"-" gorm:"belongsTo;constraint:fk_user_organization_map_organization,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:organization_id;references:id"`
 }
 
 func (UserOrganizationMap) TableName() string {
@@ -81,7 +81,7 @@ func (UserOrganizationMap) TableName() string {
 type Person struct {
 	ID             uint64            `gorm:"column:id;primaryKey;not null;autoIncrement"`
 	OrganizationID uint64            `gorm:"column:organization_id;not null"`
-	Organization   *Organization     `json:"-" gorm:"constraint:fk_person_organization,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:organization_id;references:id"`
+	Organization   *Organization     `json:"-" gorm:"belongsTo;constraint:fk_person_organization,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:organization_id;references:id"`
 	VoterID        string            `gorm:"column:voter_id;not null;size:256"`
 	Fields         map[string]string `gorm:"-"`
 }
@@ -96,7 +96,7 @@ func (Person) TableName() string {
 type PersonField struct {
 	ID       uint64  `gorm:"column:id;primaryKey;not null;autoIncrement"`
 	PersonID uint64  `gorm:"column:person_id;not null"`
-	Person   *Person `json:"-" gorm:"constraint:fk_person_field_person,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:person_id;references:id"`
+	Person   *Person `json:"-" gorm:"belongsTo;constraint:fk_person_field_person,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:person_id;references:id"`
 	Name     string  `gorm:"column:name;not null;size:256"`
 	Value    string  `gorm:"column:value;not null;size:256"`
 }

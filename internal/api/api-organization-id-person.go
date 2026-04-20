@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"regexp"
 	"strings"
 
 	"github.com/downballot/downballot/downballotapi"
@@ -41,6 +42,25 @@ func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrgan
 		}
 	}
 
+	// Tansform the header:
+	// * All lowercase
+	// * Averything except letters and numbers replaced with "_"
+	// * Trim "_" from the ends
+	// * Merge all contiguous "_"
+	{
+		illegalCharacters, err := regexp.Compile(`[^a-z0-9]+`)
+		if err != nil {
+			return output, fmt.Errorf("could not compile expression: %w", err)
+		}
+
+		for c, name := range meta.Body.Header {
+			name = strings.ToLower(name)
+			name = illegalCharacters.ReplaceAllString(name, "_")
+			name = strings.Trim(name, "_")
+			meta.Body.Header[c] = name
+		}
+	}
+
 	for rowIndex, row := range meta.Body.Rows {
 		slog.DebugContext(ctx, fmt.Sprintf("Row[%d]: (%d)", rowIndex, len(row)))
 		for h, name := range meta.Body.Header {
@@ -49,7 +69,11 @@ func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrgan
 	}
 
 	const (
+		ColumnBirthdayYear                  = "birthday_year"
 		ColumnCounty                        = "county"
+		ColumnDistrictRepresentative        = "district_representative"
+		ColumnDistrictSchool                = "district_school"
+		ColumnDistrictSenate                = "district_senate"
 		ColumnName                          = "name"
 		ColumnNameFirst                     = "name_first"
 		ColumnNameMiddle                    = "name_middle"
@@ -58,46 +82,49 @@ func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrgan
 		ColumnPhoneNumber                   = "phone_number"
 		ColumnPoliticalParty                = "political_party"
 		ColumnResidentialAddress            = "residential_address"
-		ColumnMailingAddress                = "mailing_address"
 		ColumnResidentialAddressDevelopment = "residential_address_development"
+		ColumnMailingAddress                = "mailing_address"
 		ColumnVoterID                       = "voter_id"
 	)
 	columnMap := map[string]string{
-		"County":                    ColumnCounty,
-		"Name-First":                ColumnNameFirst,
-		"Name_First":                ColumnNameFirst,
-		"Name-Middle":               ColumnNameMiddle,
-		"Name_Middle":               ColumnNameMiddle,
-		"Name-Last":                 ColumnNameLast,
-		"Name_Last":                 ColumnNameLast,
-		"Name-Suffix":               ColumnNameSuffix,
-		"Name_Suffix":               ColumnNameSuffix,
-		"Political Party":           ColumnPoliticalParty,
-		"Political_Party":           ColumnPoliticalParty,
-		"Res Addr-Development Name": ColumnResidentialAddressDevelopment,
-		"Voter ID":                  ColumnVoterID,
-		"Voter_ID":                  ColumnVoterID,
+		"year_of_birth":             ColumnBirthdayYear,
+		"county":                    ColumnCounty,
+		"district_representative":   ColumnDistrictRepresentative,
+		"district_school":           ColumnDistrictSchool,
+		"district_senate":           ColumnDistrictSenate,
+		"name_first":                ColumnNameFirst,
+		"name_middle":               ColumnNameMiddle,
+		"name_last":                 ColumnNameLast,
+		"name_suffix":               ColumnNameSuffix,
+		"political_party":           ColumnPoliticalParty,
+		"res_addr_development_name": ColumnResidentialAddressDevelopment,
+		"voter_id":                  ColumnVoterID,
 	}
 
 	var persons []*schema.Person
 	for _, row := range meta.Body.Rows {
+		// data is a structured version of the row.
 		data := map[string]string{}
 		for h, name := range meta.Body.Header {
+			data[name] = row[h]
+		}
+
+		fields := map[string]string{}
+		for name, value := range data {
 			internalName := columnMap[name]
 			if internalName != "" {
-				data["::"+internalName] = row[h]
+				fields[internalName] = value
 			}
-			data["vf::"+name] = row[h]
 		}
 
 		// Build the full name.
 		{
-			name := stringer.Join([]string{data["::"+ColumnNameFirst], data["::"+ColumnNameMiddle], data["::"+ColumnNameLast]}, " ")
+			name := stringer.Join([]string{data["name_first"], data["name_middle"], data["name_last"]}, " ")
 			if name != "" {
-				if value := data["::"+ColumnNameSuffix]; value != "" {
+				if value := data["name_suffix"]; value != "" {
 					name += ", " + value
 				}
-				data["::"+ColumnName] = name
+				fields[ColumnName] = name
 			}
 		}
 
@@ -105,65 +132,73 @@ func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrgan
 		{
 			address := stringer.Join([]string{
 				stringer.Join([]string{
-					data["vf::Res Addr-House No"], data["vf::Res_Addr_House_No_"],
-					data["vf::Res Addr-House No Suffix"], data["vf::Res_Addr_House_No_Suffix"],
-					data["vf::Res Addr-Street Direction Prefix"], data["vf::Res_Addr_Street_Direction_Prefix"],
-					data["vf::Res Addr-Street Name"], data["vf::Res_Addr_Street_Name"],
-					data["vf::Res Addr-Street Type"], data["vf::Res_Addr_Street_Type"],
-					data["vf::Res Addr-Street Direction Suffix"], data["vf::Res_Addr_Street_Direction_Suffix"],
-					data["vf::Res Addr-Unit Type"], data["vf::Res_Addr_Unit_Type"],
-					data["vf::Res Addr-Unit Number"], data["vf::Res_Addr_Unit_Number"],
+					data["res_addr_house_no"],
+					data["res_addr_house_no_suffix"],
+					data["res_addr_street_direction_prefix"],
+					data["res_addr_street_name"],
+					data["res_addr_street_type"],
+					data["res_addr_street_direction_suffix"],
+					data["res_addr_unit_type"],
+					data["res_addr_unit_number"],
 				}, " "),
 				stringer.Join([]string{
 					stringer.Join([]string{
-						stringer.Join([]string{data["vf::Res Addr-City"], data["vf::Res_Addr_City"]}, ""),
-						stringer.Join([]string{data["vf::Res Addr-State"], data["vf::Res_Addr_State"]}, ""),
+						stringer.Join([]string{data["res_addr_city"]}, ""),
+						stringer.Join([]string{data["res_addr_state"]}, ""),
 					}, ", "),
-					stringer.Join([]string{data["vf::Res Addr-Zip Code"], data["vf::Res_Addr_Zip_Code"], data["vf::Res Addr-Zip 4"], data["vf::Res_Addr_Zip_4"]}, "-"),
+					stringer.Join([]string{data["res_addr_zip_code"], data["res_addr_zip_4"]}, "-"),
 				}, " "),
 			}, ", ")
 			if address != "" {
-				data["::"+ColumnResidentialAddress] = address
+				fields[ColumnResidentialAddress] = address
 			}
 		}
 
 		// Build the mailing address.
 		{
 			address := stringer.Join([]string{
-				stringer.Join([]string{data["vf::Mail Addr-Line1"], data["vf::Mail_Addr_Line1"]}, ""),
-				stringer.Join([]string{data["vf::Mail Addr-Line2"], data["vf::Mail_Addr_Line2"]}, ""),
-				stringer.Join([]string{data["vf::Mail Addr-Line3"], data["vf::Mail_Addr_Line3"]}, ""),
-				stringer.Join([]string{data["vf::Mail Addr-Line4"], data["vf::Mail_Addr_Line4"]}, ""),
+				stringer.Join([]string{data["mail_addr_line1"]}, ""),
+				stringer.Join([]string{data["mail_addr_line2"]}, ""),
+				stringer.Join([]string{data["mail_addr_line3"]}, ""),
+				stringer.Join([]string{data["mail_addr_line4"]}, ""),
 				stringer.Join([]string{
 					stringer.Join([]string{
-						stringer.Join([]string{data["vf::Mail Addr-City"], data["vf::Mail_Addr_City"]}, ""),
-						stringer.Join([]string{data["vf::Mail Addr-State"], data["vf::Mail_Addr_State"]}, ""),
+						stringer.Join([]string{data["mail_addr_city"]}, ""),
+						stringer.Join([]string{data["mail_addr_state"]}, ""),
 					}, ", "),
-					stringer.Join([]string{data["vf::Mail Addr-Zip Code"], data["vf::Mail_Addr_Zip_Code"], data["vf::Mail Addr-Zip 4"], data["vf::Mail_Addr_Zip_4"]}, "-"),
+					stringer.Join([]string{data["mail_addr_zip_code"], data["mail_addr_zip_4"]}, "-"),
 				}, " "),
 			}, ", ")
 			if address != "" {
-				data["::"+ColumnResidentialAddress] = address
+				fields[ColumnResidentialAddress] = address
 			}
 		}
 
 		// Build the phone number.
 		{
 			phoneNumber := stringer.Join([]string{
-				data["vf::Phone-Area Code"], data["vf::Phone_Area_Code"],
-				data["vf::Phone-Exchange"], data["vf::Phone_Exchange"],
-				data["vf::Phone-Last Four"], data["vf::Phone_Last_Four"],
+				data["phone_area_code"],
+				data["phone_exchange"],
+				data["phone_last_four"],
 			}, "-")
 			if phoneNumber != "" {
-				data["::"+ColumnPhoneNumber] = phoneNumber
+				fields[ColumnPhoneNumber] = phoneNumber
+			}
+		}
+
+		// Build the voting history.
+		for name, value := range data {
+			if strings.HasPrefix(name, "voting_history_") {
+				newName := strings.ToLower(value)
+				fields["voting_history."+newName] = "yes"
 			}
 		}
 
 		person := &schema.Person{
 			OrganizationID: meta.Organization.ID,
 		}
-		person.VoterID = data["::"+ColumnVoterID]
-		person.Fields = data
+		person.VoterID = fields[ColumnVoterID]
+		person.Fields = fields
 
 		persons = append(persons, person)
 	}

@@ -7,18 +7,6 @@ import (
 	"strings"
 )
 
-// Operation constants.
-const (
-	OperationEquals   string = "="
-	OperationWildcard string = "~"
-)
-
-// Clause is a clause.  Different kinds of clauses should implement this interface.
-type Clause interface {
-	Evaluate(fields map[string]string) (bool, error)
-	String() string
-}
-
 // QuoteIfNecessary quotes the input if necessary; otherwise, it returns input as-is.
 func QuoteIfNecessary(input string) string {
 	quote := byte(0)
@@ -172,7 +160,7 @@ func Parse(ctx context.Context, input string) (Clause, error) {
 		return nil, err
 	}
 
-	slog.DebugContext(ctx, fmt.Sprintf("Tokens: (%d)", len(tokens)))
+	//slog.DebugContext(ctx, fmt.Sprintf("Tokens: (%d)", len(tokens)))
 	for _, token := range tokens {
 		slog.DebugContext(ctx, fmt.Sprintf("* %s (quoted: %t)", token.Value, token.Quote != ""))
 	}
@@ -185,8 +173,12 @@ func Parse(ctx context.Context, input string) (Clause, error) {
 }
 
 func ParseTokens(tokens []*Token) (Clause, error) {
-	output := &ClauseOrGroup{}
-	andGroup := &ClauseAndGroup{}
+	output := &ClauseGroup{
+		Operation: ClauseGroupOperationOr,
+	}
+	andGroup := &ClauseGroup{
+		Operation: ClauseGroupOperationAnd,
+	}
 
 	for len(tokens) > 0 {
 		token := tokens[0]
@@ -204,7 +196,9 @@ func ParseTokens(tokens []*Token) (Clause, error) {
 			if len(andGroup.Clauses) > 0 {
 				output.Clauses = append(output.Clauses, andGroup)
 			}
-			andGroup = &ClauseAndGroup{}
+			andGroup = &ClauseGroup{
+				Operation: ClauseGroupOperationAnd,
+			}
 			continue
 		}
 

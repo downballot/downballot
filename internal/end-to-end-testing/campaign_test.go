@@ -48,11 +48,11 @@ func TestCampaign(t *testing.T) {
 	var user2Client *downballotapi.Client
 
 	group1Name := "Stenning Woods"
-	group1Filter := "::residential_address_development = 'Stenning Woods'"
+	group1Filter := "residential_address_development = 'Stenning Woods'"
 	group1Id := ""
 
 	group2Name := "Corner Ketch"
-	group2Filter := "::residential_address_development = 'Corner Ketch'"
+	group2Filter := "residential_address_development = 'Corner Ketch'"
 	group2Id := ""
 
 	t.Log("Register the admin user.")
@@ -204,7 +204,7 @@ func TestCampaign(t *testing.T) {
 	t.Log("List all persons named Charls with 'whit' in the last name as the admin user.")
 	{
 		var output downballotapi.ListPersonsResponse
-		err := adminClient.Do(ctx, http.MethodGet, "/api/v1/organization/"+organizationId+"/person?filter=::name_first+=+charles+AND+::name_last+~+'*whit*'", nil, &output)
+		err := adminClient.Do(ctx, http.MethodGet, "/api/v1/organization/"+organizationId+"/person?filter=name_first+=+charles+AND+name_last+~+'*whit*'", nil, &output)
 		require.NoError(t, err)
 		t.Logf("Persons: %v", output.Persons)
 	}

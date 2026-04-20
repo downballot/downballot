@@ -101,13 +101,22 @@ type GetOrganizationIDGroupMetadata struct {
 	downballotwrapper.RequireAuthenticatedUser
 	downballotwrapper.UseDatabase
 	hasOrganization
-	_ string `api:"httppath:/organization/{organization_id}/group"`
-	_ string `api:"doc" description:"List the groups."`
-	_ string `api:"notes" description:"This lists the groups."`
+	_        string  `api:"httppath:/organization/{organization_id}/group"`
+	_        string  `api:"doc" description:"List the groups."`
+	_        string  `api:"notes" description:"This lists the groups."`
+	Name     *string `api:"query:name"`
+	ParentID *string `api:"query:parent_id"`
 }
 
 func (a *API) GetOrganizationIDGroup(ctx context.Context, meta GetOrganizationIDGroupMetadata) (output downballotapi.Envelope[downballotapi.ListGroupsResponse], err error) {
-	groups, err := getGroupsForUser(meta.DB, meta.CurrentUser.ID, meta.OrganizationID, nil)
+	filters := map[string]any{}
+	if meta.Name != nil {
+		filters["name"] = *meta.Name
+	}
+	if meta.ParentID != nil {
+		filters["parent_id"] = *meta.ParentID
+	}
+	groups, err := getGroupsForUser(meta.DB, meta.CurrentUser.ID, meta.OrganizationID, filters)
 	if err != nil {
 		return output, err
 	}
