@@ -52,9 +52,9 @@ func (User) TableName() string {
 // UserGruopMap maps a user to a group.
 type UserGroupMap struct {
 	ID      uint64 `gorm:"column:id;primaryKey;not null;autoIncrement"`
-	UserID  uint64 `gorm:"column:user_id;not null"`
+	UserID  uint64 `gorm:"column:user_id;not null;uniqueIndex:idx_unique_user_group,priority:1"`
 	User    *User  `json:"-" gorm:"belongsTo;constraint:fk_user_group_map_user,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:user_id;references:id"`
-	GroupID uint64 `gorm:"column:group_id;not null"`
+	GroupID uint64 `gorm:"column:group_id;not null;uniqueIndex:idx_unique_user_group,priority:2"`
 	Group   *Group `json:"-" gorm:"belongsTo;constraint:fk_user_group_map_group,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:group_id;references:id"`
 }
 
@@ -65,9 +65,9 @@ func (UserGroupMap) TableName() string {
 // UserOrganizationMap maps a user to an organization.
 type UserOrganizationMap struct {
 	ID             uint64        `gorm:"column:id;primaryKey;not null;autoIncrement"`
-	UserID         uint64        `gorm:"column:user_id;not null"`
+	UserID         uint64        `gorm:"column:user_id;not null;uniqueIndex:idx_unique_user_organization,priority:1"`
 	User           *User         `json:"-" gorm:"belongsTo;constraint:fk_user_organization_map_user,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:user_id;references:id"`
-	OrganizationID uint64        `gorm:"column:organization_id;not null"`
+	OrganizationID uint64        `gorm:"column:organization_id;not null;uniqueIndex:idx_unique_user_organization,priority:2"`
 	Organization   *Organization `json:"-" gorm:"belongsTo;constraint:fk_user_organization_map_organization,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:organization_id;references:id"`
 }
 
@@ -80,9 +80,9 @@ func (UserOrganizationMap) TableName() string {
 // The ideal person is a registered voter, with a voter ID, but whatevs.
 type Person struct {
 	ID             uint64            `gorm:"column:id;primaryKey;not null;autoIncrement"`
-	OrganizationID uint64            `gorm:"column:organization_id;not null"`
+	OrganizationID uint64            `gorm:"column:organization_id;not null;uniqueIndex:idx_unique_person,priority:1"`
 	Organization   *Organization     `json:"-" gorm:"belongsTo;constraint:fk_person_organization,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:organization_id;references:id"`
-	VoterID        string            `gorm:"column:voter_id;not null;size:256"`
+	VoterID        string            `gorm:"column:voter_id;not null;size:256;uniqueIndex:idx_unique_person,priority:2"`
 	Fields         map[string]string `gorm:"-"`
 }
 
@@ -95,10 +95,10 @@ func (Person) TableName() string {
 // This is how we'll represent dynamic data, such as the person's name, address, phone number, etc.
 type PersonField struct {
 	ID       uint64  `gorm:"column:id;primaryKey;not null;autoIncrement"`
-	PersonID uint64  `gorm:"column:person_id;not null"`
+	PersonID uint64  `gorm:"column:person_id;not null;uniqueIndex:idx_unique_person_field,priority:1"`
 	Person   *Person `json:"-" gorm:"belongsTo;constraint:fk_person_field_person,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:person_id;references:id"`
-	Name     string  `gorm:"column:name;not null;size:256"`
-	Value    string  `gorm:"column:value;not null;size:256"`
+	Name     string  `gorm:"column:name;not null;size:256;uniqueIndex:idx_unique_person_field,priority:2;index:idx_person_field_name_value,priority:1"`
+	Value    string  `gorm:"column:value;not null;size:256;index:idx_person_field_name_value,priority:2"`
 }
 
 func (PersonField) TableName() string {
