@@ -84,7 +84,7 @@ func (a *API) GetOrganizationIDGroupIDPerson(ctx context.Context, meta GetOrgani
 			slog.DebugContext(ctx, fmt.Sprintf("f: condition: %+v", typedClause))
 
 			joinCount++
-			query = query.Joins("LEFT OUTER JOIN person_field AS person_field_join" + fmt.Sprintf("%d", joinCount) + " ON person.id = person_field_join" + fmt.Sprintf("%d", joinCount) + ".person_id")
+			query = query.Joins("INNER JOIN person_field AS person_field_join" + fmt.Sprintf("%d", joinCount) + " ON person.id = person_field_join" + fmt.Sprintf("%d", joinCount) + ".person_id")
 			groupQuery = groupQuery.Where("person_field_join"+fmt.Sprintf("%d", joinCount)+".name = ?", typedClause.Name)
 			switch typedClause.Operation {
 			case filter.OperationEquals:
