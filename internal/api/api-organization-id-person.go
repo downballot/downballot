@@ -55,6 +55,7 @@ func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrgan
 		ColumnNameMiddle                    = "name_middle"
 		ColumnNameLast                      = "name_last"
 		ColumnNameSuffix                    = "name_suffix"
+		ColumnPhoneNumber                   = "phone_number"
 		ColumnPoliticalParty                = "political_party"
 		ColumnResidentialAddress            = "residential_address"
 		ColumnMailingAddress                = "mailing_address"
@@ -143,6 +144,18 @@ func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrgan
 			}, ", ")
 			if address != "" {
 				data["::"+ColumnResidentialAddress] = address
+			}
+		}
+
+		// Build the phone number.
+		{
+			phoneNumber := stringer.Join([]string{
+				data["vf::Phone-Area Code"], data["vf::Phone_Area_Code"],
+				data["vf::Phone-Exchange"], data["vf::Phone_Exchange"],
+				data["vf::Phone-Last Four"], data["vf::Phone_Last_Four"],
+			}, "-")
+			if phoneNumber != "" {
+				data["::"+ColumnPhoneNumber] = phoneNumber
 			}
 		}
 
