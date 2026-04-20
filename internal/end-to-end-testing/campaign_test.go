@@ -8,6 +8,7 @@ import (
 	"github.com/downballot/downballot/downballotapi"
 	"github.com/downballot/downballot/internal/applicationtest"
 	"github.com/downballot/downballot/internal/testutils"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tekkamanendless/restapiclient"
 )
@@ -187,6 +188,7 @@ func TestCampaign(t *testing.T) {
 		err := adminClient.Do(ctx, http.MethodGet, "/api/v1/organization/"+organizationId+"/person", nil, &output)
 		require.NoError(t, err)
 		t.Logf("Persons: %v", output.Persons)
+		assert.Empty(t, output.Persons)
 	}
 
 	t.Log("Import the voter file as the admin user.")
@@ -194,7 +196,7 @@ func TestCampaign(t *testing.T) {
 		input, err := os.ReadFile("../../test/de_voter_reg.small.csv")
 		require.NoError(t, err)
 		var output downballotapi.ImportPersonResponse
-		err = adminClient.Do(ctx, http.MethodPost, "/api/v1/organization/"+organizationId+"/person/import", restapiclient.RawBytes(input), &output, restapiclient.OptionHeader("Content-Type", "application/octet-stream"))
+		err = adminClient.Do(ctx, http.MethodPost, "/api/v1/organization/"+organizationId+"/person/import", restapiclient.RawBytes(input), &output, restapiclient.OptionHeader("Content-Type", "text/csv"))
 		require.NoError(t, err)
 		t.Logf("Persons: %v", output.Records)
 	}
@@ -202,7 +204,7 @@ func TestCampaign(t *testing.T) {
 	t.Log("List all persons named Charls with 'whit' in the last name as the admin user.")
 	{
 		var output downballotapi.ListPersonsResponse
-		err := adminClient.Do(ctx, http.MethodGet, "/api/v1/organization/"+organizationId+"/person?filter=::name_first+=+charles+AND+::name_last+~'*whit*'", nil, &output)
+		err := adminClient.Do(ctx, http.MethodGet, "/api/v1/organization/"+organizationId+"/person?filter=::name_first+=+charles+AND+::name_last+~+'*whit*'", nil, &output)
 		require.NoError(t, err)
 		t.Logf("Persons: %v", output.Persons)
 	}

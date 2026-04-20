@@ -1,15 +1,14 @@
 package api
 
 import (
-	"bytes"
 	"context"
-	"encoding/csv"
 	"fmt"
 	"log/slog"
 	"strings"
 
 	"github.com/downballot/downballot/downballotapi"
 	"github.com/downballot/downballot/internal/api/downballotwrapper"
+	"github.com/downballot/downballot/internal/api/restcsv"
 	"github.com/downballot/downballot/internal/filter"
 	"github.com/downballot/downballot/internal/schema"
 	"github.com/downballot/downballot/internal/stringer"
@@ -22,40 +21,30 @@ type PostOrganizationIDPersonImportMetadata struct {
 	downballotwrapper.RequireAuthenticatedUser
 	downballotwrapper.UseDatabase
 	hasOrganization
-	_    string `api:"httppath:/organization/{organization_id}/person/import"`
-	_    string `api:"doc" description:"Import a new set of persons."`
-	_    string `api:"notes" description:"This imports a new set of persons."`
-	Body []byte `api:"body:consumes:application/octet-stream"`
+	_    string        `api:"httppath:/organization/{organization_id}/person/import"`
+	_    string        `api:"doc" description:"Import a new set of persons."`
+	_    string        `api:"notes" description:"This imports a new set of persons."`
+	Body restcsv.Table `api:"body:consumes:text/csv"`
 }
 
 func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrganizationIDPersonImportMetadata) (output downballotapi.Envelope[downballotapi.ImportPersonResponse], err error) {
-	contents := meta.Body
-	slog.InfoContext(ctx, fmt.Sprintf("Contents: (%d)", len(contents)))
+	slog.InfoContext(ctx, fmt.Sprintf("Header: %+v", meta.Body.Header))
+	slog.InfoContext(ctx, fmt.Sprintf("Rows: (%d)", len(meta.Body.Rows)))
 
-	csvReader := csv.NewReader(bytes.NewReader(contents))
-	csvReader.Comma = '\t'
-	rows, err := csvReader.ReadAll()
-	if err != nil {
-		return output, err
+	// Trim all of the cells.
+	for c := range meta.Body.Header {
+		meta.Body.Header[c] = strings.TrimSpace(meta.Body.Header[c])
 	}
-	slog.InfoContext(ctx, fmt.Sprintf("Rows: (%d)", len(rows)))
-	for r := range rows {
-		for c := range rows[r] {
-			rows[r][c] = strings.TrimSpace(rows[r][c])
+	for r := range meta.Body.Rows {
+		for c := range meta.Body.Rows[r] {
+			meta.Body.Rows[r][c] = strings.TrimSpace(meta.Body.Rows[r][c])
 		}
 	}
 
-	var header []string
-	if len(rows) > 0 {
-		header = rows[0]
-		rows = rows[1:]
-		slog.InfoContext(ctx, fmt.Sprintf("Header: (%d)", len(header)))
-	}
-	slog.InfoContext(ctx, fmt.Sprintf("Rows: (%d)", len(rows)))
-	for rowIndex, row := range rows {
-		slog.InfoContext(ctx, fmt.Sprintf("Row[%d]: (%d)", rowIndex, len(row)))
-		for h, name := range header {
-			slog.InfoContext(ctx, fmt.Sprintf("   %s: %s", name, row[h]))
+	for rowIndex, row := range meta.Body.Rows {
+		slog.DebugContext(ctx, fmt.Sprintf("Row[%d]: (%d)", rowIndex, len(row)))
+		for h, name := range meta.Body.Header {
+			slog.DebugContext(ctx, fmt.Sprintf("   %s: %s", name, row[h]))
 		}
 	}
 
@@ -90,9 +79,9 @@ func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrgan
 	}
 
 	var persons []*schema.Person
-	for _, row := range rows {
+	for _, row := range meta.Body.Rows {
 		data := map[string]string{}
-		for h, name := range header {
+		for h, name := range meta.Body.Header {
 			internalName := columnMap[name]
 			if internalName != "" {
 				data["::"+internalName] = row[h]
@@ -169,7 +158,7 @@ func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrgan
 	output.Data.Records = uint64(len(persons))
 	err = meta.DB.Transaction(func(tx *gorm.DB) error {
 		err := tx.Session(&gorm.Session{NewDB: true}).
-			Create(&persons).
+			CreateInBatches(&persons, 2000).
 			Error
 		if err != nil {
 			return err
@@ -187,7 +176,7 @@ func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrgan
 			}
 		}
 		err = tx.Session(&gorm.Session{NewDB: true}).
-			Create(&fields).
+			CreateInBatches(&fields, 2000).
 			Error
 		if err != nil {
 			return err

@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	gormextraclauseplugin "github.com/WinterYukky/gorm-extra-clause-plugin"
 	_ "github.com/threatmate/sqlite"
@@ -15,7 +16,9 @@ func New(ctx context.Context, driverName string, connectionString string) (*gorm
 	var db *gorm.DB
 	var err error
 
-	config := &gorm.Config{}
+	config := &gorm.Config{
+		TranslateError: true, // Ensure that errors are properly translated into the Gorm built-in ones.
+	}
 
 	switch driverName {
 	case "sqlite3":
@@ -32,7 +35,10 @@ func New(ctx context.Context, driverName string, connectionString string) (*gorm
 		return nil, err
 	}
 
-	db = db.Debug()
+	// Only turn on database debugging if we're in debug mode.
+	if slog.Default().Enabled(ctx, slog.LevelDebug) {
+		db = db.Debug()
+	}
 
 	return db, nil
 }
