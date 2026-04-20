@@ -10,7 +10,7 @@ import (
 // Operation constants.
 const (
 	OperationEquals   string = "="
-	OperationContains string = "~"
+	OperationWildcard string = "~"
 )
 
 // Clause is a clause.  Different kinds of clauses should implement this interface.
@@ -267,7 +267,7 @@ func ParseTokens(tokens []*Token) (Clause, error) {
 		clause.Operation = token.Value
 
 		validOperationMap := map[string]bool{
-			OperationContains: true,
+			OperationWildcard: true,
 			OperationEquals:   true,
 		}
 		if !validOperationMap[clause.Operation] {

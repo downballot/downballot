@@ -12,6 +12,7 @@ import (
 	"github.com/downballot/downballot/internal/api/downballotwrapper"
 	"github.com/downballot/downballot/internal/filter"
 	"github.com/downballot/downballot/internal/schema"
+	"github.com/downballot/downballot/internal/stringer"
 	"github.com/threatmate/restfulwrapper"
 	"gorm.io/gorm"
 )
@@ -60,11 +61,14 @@ func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrgan
 
 	const (
 		ColumnCounty                        = "county"
+		ColumnName                          = "name"
 		ColumnNameFirst                     = "name_first"
 		ColumnNameMiddle                    = "name_middle"
 		ColumnNameLast                      = "name_last"
 		ColumnNameSuffix                    = "name_suffix"
 		ColumnPoliticalParty                = "political_party"
+		ColumnResidentialAddress            = "residential_address"
+		ColumnMailingAddress                = "mailing_address"
 		ColumnResidentialAddressDevelopment = "residential_address_development"
 		ColumnVoterID                       = "voter_id"
 	)
@@ -96,9 +100,62 @@ func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrgan
 			data["vf::"+name] = row[h]
 		}
 
+		// Build the full name.
+		{
+			name := stringer.Join([]string{data["::"+ColumnNameFirst], data["::"+ColumnNameMiddle], data["::"+ColumnNameLast]}, " ")
+			if name != "" {
+				if value := data["::"+ColumnNameSuffix]; value != "" {
+					name += ", " + value
+				}
+				data["::"+ColumnName] = name
+			}
+		}
+
 		// Build the address.
+		{
+			address := stringer.Join([]string{
+				stringer.Join([]string{
+					data["vf::Res Addr-House No"], data["vf::Res_Addr_House_No_"],
+					data["vf::Res Addr-House No Suffix"], data["vf::Res_Addr_House_No_Suffix"],
+					data["vf::Res Addr-Street Direction Prefix"], data["vf::Res_Addr_Street_Direction_Prefix"],
+					data["vf::Res Addr-Street Name"], data["vf::Res_Addr_Street_Name"],
+					data["vf::Res Addr-Street Type"], data["vf::Res_Addr_Street_Type"],
+					data["vf::Res Addr-Street Direction Suffix"], data["vf::Res_Addr_Street_Direction_Suffix"],
+					data["vf::Res Addr-Unit Type"], data["vf::Res_Addr_Unit_Type"],
+					data["vf::Res Addr-Unit Number"], data["vf::Res_Addr_Unit_Number"],
+				}, " "),
+				stringer.Join([]string{
+					stringer.Join([]string{
+						stringer.Join([]string{data["vf::Res Addr-City"], data["vf::Res_Addr_City"]}, ""),
+						stringer.Join([]string{data["vf::Res Addr-State"], data["vf::Res_Addr_State"]}, ""),
+					}, ", "),
+					stringer.Join([]string{data["vf::Res Addr-Zip Code"], data["vf::Res_Addr_Zip_Code"], data["vf::Res Addr-Zip 4"], data["vf::Res_Addr_Zip_4"]}, "-"),
+				}, " "),
+			}, ", ")
+			if address != "" {
+				data["::"+ColumnResidentialAddress] = address
+			}
+		}
 
 		// Build the mailing address.
+		{
+			address := stringer.Join([]string{
+				stringer.Join([]string{data["vf::Mail Addr-Line1"], data["vf::Mail_Addr_Line1"]}, ""),
+				stringer.Join([]string{data["vf::Mail Addr-Line2"], data["vf::Mail_Addr_Line2"]}, ""),
+				stringer.Join([]string{data["vf::Mail Addr-Line3"], data["vf::Mail_Addr_Line3"]}, ""),
+				stringer.Join([]string{data["vf::Mail Addr-Line4"], data["vf::Mail_Addr_Line4"]}, ""),
+				stringer.Join([]string{
+					stringer.Join([]string{
+						stringer.Join([]string{data["vf::Mail Addr-City"], data["vf::Mail_Addr_City"]}, ""),
+						stringer.Join([]string{data["vf::Mail Addr-State"], data["vf::Mail_Addr_State"]}, ""),
+					}, ", "),
+					stringer.Join([]string{data["vf::Mail Addr-Zip Code"], data["vf::Mail_Addr_Zip_Code"], data["vf::Mail Addr-Zip 4"], data["vf::Mail_Addr_Zip_4"]}, "-"),
+				}, " "),
+			}, ", ")
+			if address != "" {
+				data["::"+ColumnResidentialAddress] = address
+			}
+		}
 
 		person := &schema.Person{
 			OrganizationID: meta.Organization.ID,

@@ -2,6 +2,7 @@ package filter
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 )
 
@@ -22,8 +23,12 @@ func (c ClauseCondition) String() string {
 func (c ClauseCondition) Evaluate(fields map[string]string) (bool, error) {
 	value := fields[c.Name]
 	switch c.Operation {
-	case OperationContains:
-		if !strings.Contains(strings.ToLower(value), strings.ToLower(c.Value)) {
+	case OperationWildcard:
+		ok, err := filepath.Match(strings.ToLower(c.Value), strings.ToLower(value))
+		if err != nil {
+			return false, fmt.Errorf("could not perform wildcard match: %w", err)
+		}
+		if !ok {
 			return false, nil
 		}
 	case OperationEquals:
