@@ -90,6 +90,13 @@ func getGroupHierarchiesForUser(db *gorm.DB, userID any, organizationID any) ([]
 	return hierarchies, nil
 }
 
+// condenseHierarchies prunes any hierarchies that are covered by ones higher up the chain.
+//
+// Since these hierarchies are used for permissions, we need to keep the most encompassing ones,
+// not the derivative ones.
+//
+// For example, if the hierarchies include the root group, then all of other ones will be pruned.
+// Similar, if a parent and child are in the list, then the child will be pruned.
 func condenseHierarchies(hierarchies [][]*schema.Group) [][]*schema.Group {
 	var newHierarchies [][]*schema.Group
 	{
