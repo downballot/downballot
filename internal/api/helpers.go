@@ -25,6 +25,7 @@ func getGroupsForUser(db *gorm.DB, userID any, organizationID any, filters map[s
 		}
 	}
 	err := query.
+		Order("id").
 		Find(&groups).
 		Error
 	if err != nil {
@@ -40,6 +41,7 @@ func getGroupHierarchiesForUser(db *gorm.DB, userID any, organizationID any) ([]
 		var groups []*schema.Group
 		err := db.Session(&gorm.Session{}).
 			Where("organization_id = ?", organizationID).
+			Order("id").
 			Find(&groups).
 			Error
 		if err != nil {
@@ -60,6 +62,7 @@ func getGroupHierarchiesForUser(db *gorm.DB, userID any, organizationID any) ([]
 		err := db.Session(&gorm.Session{}).
 			Where("organization_id = ?", organizationID).
 			Where("id IN (SELECT group_id FROM user_group_map WHERE user_id = ?)", userID).
+			Order("id").
 			Find(&groups).
 			Error
 		if err != nil {
@@ -87,6 +90,48 @@ func getGroupHierarchiesForUser(db *gorm.DB, userID any, organizationID any) ([]
 	return hierarchies, nil
 }
 
+func condenseHierarchies(hierarchies [][]*schema.Group) [][]*schema.Group {
+	var newHierarchies [][]*schema.Group
+	{
+		pathToIndexMap := map[string]int{}
+		indexToKeepMap := map[int]bool{}
+		indexToPathMap := map[int]string{}
+		for i, hierarchy := range hierarchies {
+			indexToKeepMap[i] = true
+
+			var pathParts []string
+			for _, group := range hierarchy {
+				pathParts = append(pathParts, fmt.Sprintf("%d", group.ID))
+			}
+			path := "/" + strings.Join(pathParts, "/") + "/"
+			pathToIndexMap[path] = i
+			indexToPathMap[i] = path
+		}
+		for i := range hierarchies {
+			if !indexToKeepMap[i] {
+				continue
+			}
+
+			iPath := indexToPathMap[i]
+			for j := range hierarchies {
+				if i == j {
+					continue
+				}
+				jPath := indexToPathMap[j]
+				if strings.HasPrefix(jPath, iPath) {
+					indexToKeepMap[j] = false
+				}
+			}
+		}
+		for i, keep := range indexToKeepMap {
+			if keep {
+				newHierarchies = append(newHierarchies, hierarchies[i])
+			}
+		}
+	}
+	return newHierarchies
+}
+
 func filterPersons(ctx context.Context, db *gorm.DB, userID uint64, organizationID uint64, groupID *uint64, filterString *string, returnFields []string, limit int) ([]*downballotapi.Person, error) {
 	hierarchies, err := getGroupHierarchiesForUser(db, userID, organizationID)
 	if err != nil {
@@ -94,7 +139,10 @@ func filterPersons(ctx context.Context, db *gorm.DB, userID uint64, organization
 	}
 	slog.InfoContext(ctx, fmt.Sprintf("Hierarchies: (%d)", len(hierarchies)))
 
-	if groupID != nil {
+	if groupID == nil {
+		hierarchies = condenseHierarchies(hierarchies)
+		slog.InfoContext(ctx, fmt.Sprintf("Consensed hierarchies: (%d)", len(hierarchies)))
+	} else {
 		var groupHierarchy []*schema.Group
 		for _, hierarchy := range hierarchies {
 			if len(hierarchy) > 0 && hierarchy[len(hierarchy)-1].ID == *groupID {
@@ -108,6 +156,7 @@ func filterPersons(ctx context.Context, db *gorm.DB, userID uint64, organization
 		}
 
 		hierarchies = [][]*schema.Group{groupHierarchy}
+		slog.InfoContext(ctx, fmt.Sprintf("Group-limited hierarchies: (%d)", len(hierarchies)))
 	}
 
 	query := db.Session(&gorm.Session{})
@@ -195,6 +244,7 @@ func filterPersons(ctx context.Context, db *gorm.DB, userID uint64, organization
 	var persons []*schema.Person
 	err = query.
 		Distinct().
+		Where("organization_id IN (SELECT id FROM organization WHERE id = ?)", organizationID).
 		Limit(limit).
 		Find(&persons).
 		Error
