@@ -6,6 +6,7 @@ import (
 	"log/slog"
 
 	gormextraclauseplugin "github.com/WinterYukky/gorm-extra-clause-plugin"
+	"github.com/tekkamanendless/gormslog"
 	_ "github.com/threatmate/sqlite"
 	"github.com/threatmate/sqlite/driver/gorm/sqlite"
 	"gorm.io/gorm"
@@ -17,7 +18,8 @@ func New(ctx context.Context, driverName string, connectionString string) (*gorm
 	var err error
 
 	config := &gorm.Config{
-		TranslateError: true, // Ensure that errors are properly translated into the Gorm built-in ones.
+		TranslateError: true,           // Ensure that errors are properly translated into the Gorm built-in ones.
+		Logger:         gormslog.New(), // Use slog for logging.
 	}
 
 	switch driverName {

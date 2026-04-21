@@ -13,6 +13,7 @@ require (
 	github.com/sirupsen/logrus v1.8.1
 	github.com/slack-go/slack v0.9.5
 	github.com/stretchr/testify v1.11.1
+	github.com/tekkamanendless/gormslog v0.1.1
 	github.com/tekkamanendless/httperror v1.0.1
 	github.com/tekkamanendless/restapiclient v0.1.1
 	github.com/threatmate/restfulwrapper v0.1.4
