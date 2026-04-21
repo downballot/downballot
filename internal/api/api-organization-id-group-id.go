@@ -138,7 +138,9 @@ func (a *API) GetOrganizationIDGroupIDPerson(ctx context.Context, meta GetOrgani
 	}
 
 	var persons []*schema.Person
-	err = query.Find(&persons).
+	err = query.
+		Distinct().
+		Find(&persons).
 		Limit(1000). // TODO: Setting for this?
 		Error
 	if err != nil {

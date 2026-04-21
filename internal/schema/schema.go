@@ -5,7 +5,7 @@ package schema
 // This will be a candidate campaign.
 type Organization struct {
 	ID   uint64 `gorm:"column:id;primaryKey;not null;autoIncrement"`
-	Name string `gorm:"column:name;size:256"`
+	Name string `gorm:"column:name;size:256;type:varchar(256) collate nocase"`
 }
 
 func (Organization) TableName() string {
@@ -24,8 +24,8 @@ type Group struct {
 	Organization   *Organization `json:"-" gorm:"belongsTo;constraint:fk_group_organization,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:organization_id;references:id"`
 	ParentID       *uint64       `gorm:"column:parent_id"`
 	Parent         *Group        `json:"-" gorm:"belongsTo;constraint:fk_group_parent,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:parent_id;references:id"`
-	Name           string        `gorm:"column:name;size:256"`
-	Filter         string        `gorm:"column:filter"`
+	Name           string        `gorm:"column:name;size:256;type:varchar(256) collate nocase"`
+	Filter         string        `gorm:"column:filter;type:text collate nocase"`
 }
 
 func (Group) TableName() string {
@@ -40,8 +40,8 @@ func (Group) TableName() string {
 // a member of that group's organization.
 type User struct {
 	ID       uint64 `gorm:"column:id;primaryKey;not null;autoIncrement"`
-	Username string `gorm:"column:username;size:256;unique"`
-	Name     string `gorm:"column:name;size:256"`
+	Username string `gorm:"column:username;size:256;unique;type:varchar(256) collate nocase"`
+	Name     string `gorm:"column:name;size:256;type:varchar(256) collate nocase"`
 	// TODO: Password hash
 }
 
@@ -82,8 +82,8 @@ type Person struct {
 	ID             uint64            `gorm:"column:id;primaryKey;not null;autoIncrement"`
 	OrganizationID uint64            `gorm:"column:organization_id;not null;uniqueIndex:idx_unique_person,priority:1"`
 	Organization   *Organization     `json:"-" gorm:"belongsTo;constraint:fk_person_organization,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:organization_id;references:id"`
-	VoterID        string            `gorm:"column:voter_id;not null;size:256;uniqueIndex:idx_unique_person,priority:2"`
-	Fields         map[string]string `gorm:"-"`
+	VoterID        string            `gorm:"column:voter_id;not null;size:256;type:varchar(256) collate nocase;uniqueIndex:idx_unique_person,priority:2"`
+	Fields         map[string]string `gorm:"-"` // TODO: Use an intermediate structure, not the schema structure.
 }
 
 func (Person) TableName() string {
@@ -97,8 +97,8 @@ type PersonField struct {
 	ID       uint64  `gorm:"column:id;primaryKey;not null;autoIncrement"`
 	PersonID uint64  `gorm:"column:person_id;not null;uniqueIndex:idx_unique_person_field,priority:1"`
 	Person   *Person `json:"-" gorm:"belongsTo;constraint:fk_person_field_person,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:person_id;references:id"`
-	Name     string  `gorm:"column:name;not null;size:256;uniqueIndex:idx_unique_person_field,priority:2;index:idx_person_field_name_value,priority:1"`
-	Value    string  `gorm:"column:value;not null;size:256;index:idx_person_field_name_value,priority:2"`
+	Name     string  `gorm:"column:name;not null;size:256;type:varchar(256) collate nocase;uniqueIndex:idx_unique_person_field,priority:2;index:idx_person_field_name_value,priority:1"`
+	Value    string  `gorm:"column:value;not null;size:256;type:varchar(256) collate nocase;index:idx_person_field_name_value,priority:2"`
 }
 
 func (PersonField) TableName() string {
