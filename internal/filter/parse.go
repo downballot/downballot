@@ -34,10 +34,11 @@ func QuoteIfNecessary(input string) string {
 	return output
 }
 
+// Token is a token during parsing.
 type Token struct {
-	Value  string
-	Quote  string
-	Symbol bool
+	Value  string // The current value of the token.  We will append to this during parsing.
+	Quote  string // If this token is quoted, then this is the quote character.
+	Symbol bool   // If this token is a symbol, then this is true.
 }
 
 func (t Token) String() string {
@@ -222,22 +223,27 @@ func ParseTokens(tokens []*Token) (Clause, error) {
 				token = tokens[0]
 				tokens = tokens[1:]
 
-				if token.Quote == "" && token.Value == "(" {
-					parens++
-					continue
-				}
-				if token.Quote == "" && token.Value == ")" {
-					parens--
-					if parens == 0 {
-						break
+				if token.Quote == "" {
+					if token.Value == "(" {
+						parens++
+						// Don't include the first paren when building out the group.
+						if parens == 1 {
+							continue
+						}
+					} else if token.Value == ")" {
+						parens--
+						// Don't include the last paren when building out the group.
+						if parens == 0 {
+							break
+						}
 					}
-					continue
 				}
 				group = append(group, token)
 			}
 			if parens > 0 {
 				return nil, fmt.Errorf("mismatched parens: %d", parens)
 			}
+			//fmt.Printf("group: %+v\n", group) // DEBUG
 			clause, err := ParseTokens(group)
 			if err != nil {
 				return nil, err

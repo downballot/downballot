@@ -61,14 +61,14 @@ func (a *API) PostOrganization(ctx context.Context, meta PostOrganizationMetadat
 		return output, restfulwrapper.NewAPIBodyError(fmt.Errorf("missing name"))
 	}
 	if meta.Body.OwnerID == "" {
-		if meta.CurrentUser.ID == "0" {
+		if meta.CurrentUser.ID == 0 {
 			return output, restfulwrapper.NewAPIBodyError(fmt.Errorf("missing owner_id"))
 		}
-		meta.Body.OwnerID = meta.CurrentUser.ID
+		meta.Body.OwnerID = fmt.Sprintf("%d", meta.CurrentUser.ID)
 		slog.InfoContext(ctx, fmt.Sprintf("No owner ID given; using current user: %s", meta.Body.OwnerID))
 	}
-	if meta.Body.OwnerID != "" && meta.CurrentUser.ID != "0" {
-		if meta.CurrentUser.ID != meta.Body.OwnerID {
+	if meta.Body.OwnerID != "" && meta.CurrentUser.ID != 0 {
+		if fmt.Sprintf("%d", meta.CurrentUser.ID) != meta.Body.OwnerID {
 			return output, restfulwrapper.NewAPIBodyError(fmt.Errorf("mismatched owner_id"))
 		}
 	}

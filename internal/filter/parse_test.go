@@ -275,6 +275,18 @@ func TestParseQuery(t *testing.T) {
 			canonical:   "((key1 = value1 AND key2 = value2) OR (key3 = value3 AND key4 = value4))",
 		},
 		{
+			description: "Real world test grouping 1",
+			query:       "((((district_representative = 'RD23') AND (political_party = 'DEMOCRATIC') AND ((political_party = 'DEMOCRATIC') AND (voting_history.pr2024 = yes OR voting_history.pr2022 = yes)))))",
+			success:     true,
+			canonical:   "(district_representative = RD23 AND political_party = DEMOCRATIC AND (political_party = DEMOCRATIC AND (voting_history.pr2024 = yes OR voting_history.pr2022 = yes)))",
+		},
+		{
+			description: "Real world test grouping 2",
+			query:       "((((district_representative = 'RD23'))) OR (((district_representative = 'RD23') AND (political_party = 'DEMOCRATIC'))))",
+			success:     true,
+			canonical:   "(district_representative = RD23 OR (district_representative = RD23 AND political_party = DEMOCRATIC))",
+		},
+		{
 			description: "Mismatched open paren",
 			query:       "key1 = value1 and (key2 = value2",
 			success:     false,

@@ -16,7 +16,7 @@ import (
 )
 
 type User struct {
-	ID           string
+	ID           uint64
 	EmailAddress string
 	Name         string
 	SystemAdmin  bool
@@ -193,7 +193,7 @@ func (c Config) filterAppendUserInformation(req *restful.Request, resp *restful.
 func (c Config) findUserInformationFromToken(db *gorm.DB, tokenString string) (*User, error) {
 	if c.SystemToken != "" && tokenString == c.SystemToken {
 		return &User{
-			ID:           "0",
+			ID:           0,
 			EmailAddress: "@system",
 			Name:         "System User",
 			SystemAdmin:  true,
@@ -220,7 +220,7 @@ func (c Config) findUserInformationFromToken(db *gorm.DB, tokenString string) (*
 	user := users[0]
 
 	return &User{
-		ID:           fmt.Sprintf("%d", user.ID),
+		ID:           user.ID,
 		EmailAddress: user.Username,
 		Name:         user.Name,
 		SystemAdmin:  false,

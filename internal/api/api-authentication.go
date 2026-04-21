@@ -48,7 +48,7 @@ func (a *API) PostAuthenticationLogin(ctx context.Context, meta PostAuthenticati
 	slog.InfoContext(ctx, fmt.Sprintf("Expiration date: %v", claims.ExpiresAt))
 
 	if meta.CurrentUser != nil {
-		claims.Subject = meta.CurrentUser.ID
+		claims.Subject = meta.CurrentUser.EmailAddress
 		claims.Email = meta.CurrentUser.EmailAddress
 
 		slog.InfoContext(ctx, fmt.Sprintf("This request is already authenticated as: %s", claims.Subject))
@@ -123,7 +123,7 @@ type GetAuthenticationStatusMetadata struct {
 func (a *API) GetAuthenticationStatus(ctx context.Context, meta GetAuthenticationStatusMetadata) (output downballotapi.Envelope[downballotapi.AuthenticationStatusResponse], err error) {
 	if meta.CurrentUser != nil {
 		output.Data.User = &downballotapi.AuthenticationStatusUser{
-			ID:    meta.CurrentUser.ID,
+			ID:    fmt.Sprintf("%d", meta.CurrentUser.ID),
 			Email: meta.CurrentUser.EmailAddress,
 			Name:  meta.CurrentUser.Name,
 			Admin: meta.CurrentUser.SystemAdmin,
