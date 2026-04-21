@@ -190,7 +190,9 @@ func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrgan
 		for name, value := range data {
 			if strings.HasPrefix(name, "voting_history_") {
 				newName := strings.ToLower(value)
-				fields["voting_history."+newName] = "yes"
+				if newName != "" {
+					fields["voting_history."+newName] = "yes"
+				}
 			}
 		}
 

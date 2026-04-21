@@ -52,6 +52,7 @@ type GetOrganizationIDGroupIDPersonMetadata struct {
 	_      string  `api:"doc" description:"Get the people in the group."`
 	_      string  `api:"notes" description:"This gets the people in the group."`
 	Filter *string `api:"query:filter"`
+	Fields *string `api:"query:fields"`
 }
 
 func (a *API) GetOrganizationIDGroupIDPerson(ctx context.Context, meta GetOrganizationIDGroupIDPersonMetadata) (output downballotapi.Envelope[downballotapi.ListPersonsResponse], err error) {
@@ -152,8 +153,12 @@ func (a *API) GetOrganizationIDGroupIDPerson(ctx context.Context, meta GetOrgani
 	personFieldsMap := map[uint64][]*schema.PersonField{}
 	{
 		var fields []*schema.PersonField
-		err = meta.DB.Session(&gorm.Session{}).
-			Where("person_id IN (?)", personIDs).
+		query := meta.DB.Session(&gorm.Session{}).
+			Where("person_id IN (?)", personIDs)
+		if meta.Fields != nil {
+			query = query.Where("name IN (?)", strings.Split(*meta.Fields, ","))
+		}
+		err := query.
 			Find(&fields).
 			Error
 		if err != nil {
