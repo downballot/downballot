@@ -193,7 +193,7 @@ func TestCampaign(t *testing.T) {
 
 	t.Log("Import the voter file as the admin user.")
 	{
-		input, err := os.ReadFile("../../test/de_voter_reg.small.csv")
+		input, err := os.ReadFile("../../test/de_voter_reg.2026.small.csv")
 		require.NoError(t, err)
 		var output downballotapi.ImportPersonResponse
 		err = adminClient.Do(ctx, http.MethodPost, "/api/v1/organization/"+organizationId+"/person/import", restapiclient.RawBytes(input), &output, restapiclient.OptionHeader("Content-Type", "text/csv"))
@@ -258,7 +258,7 @@ func TestCampaign(t *testing.T) {
 	t.Log("Add user 2 to group 2.")
 	{
 		input := downballotapi.AddUserToGroupRequest{
-			GroupID: group1Id,
+			GroupID: group2Id,
 		}
 		err := adminClient.Do(ctx, http.MethodPost, "/api/v1/organization/"+organizationId+"/user/"+user2Id+"/group", input, nil)
 		require.NoError(t, err)
