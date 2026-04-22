@@ -139,7 +139,7 @@ func condenseHierarchies(hierarchies [][]*schema.Group) [][]*schema.Group {
 	return newHierarchies
 }
 
-func filterPersons(ctx context.Context, db *gorm.DB, userID uint64, organizationID uint64, groupID *uint64, filterString *string, returnFields []string, limit int) ([]*downballotapi.Person, error) {
+func filterPersons(ctx context.Context, db *gorm.DB, userID uint64, organizationID uint64, groupID *uint64, filterString *string, returnFields *[]string, limit int) ([]*downballotapi.Person, error) {
 	hierarchies, err := getGroupHierarchiesForUser(db, userID, organizationID)
 	if err != nil {
 		return nil, err
@@ -271,8 +271,8 @@ func filterPersons(ctx context.Context, db *gorm.DB, userID uint64, organization
 		var fields []*schema.PersonField
 		query := db.Session(&gorm.Session{}).
 			Where("person_id IN (?)", personIDs)
-		if len(returnFields) > 0 {
-			query = query.Where("name IN (?)", returnFields)
+		if returnFields != nil {
+			query = query.Where("name IN (?)", *returnFields)
 		}
 		err := query.
 			Find(&fields).
