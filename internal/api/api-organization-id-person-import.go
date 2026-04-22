@@ -169,7 +169,7 @@ func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrgan
 				}, " "),
 			}, ", ")
 			if address != "" {
-				fields[ColumnResidentialAddress] = address
+				fields[ColumnMailingAddress] = address
 			}
 		}
 

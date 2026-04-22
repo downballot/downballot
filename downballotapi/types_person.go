@@ -10,6 +10,11 @@ type ListPersonsResponse struct {
 	Persons []*Person `json:"persons"`
 }
 
+// GetPersonResponse is the response from getting the person.
+type GetPersonResponse struct {
+	Person *Person `json:"person"`
+}
+
 // Person is an person.
 type Person struct {
 	ID      string            `json:"id"`
