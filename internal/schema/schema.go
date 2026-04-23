@@ -1,5 +1,7 @@
 package schema
 
+import "github.com/downballot/downballot/internal/schema/sqltype"
+
 // Organization is an organization using this system.
 //
 // This will be a candidate campaign.
@@ -103,4 +105,21 @@ type PersonField struct {
 
 func (PersonField) TableName() string {
 	return "person_field"
+}
+
+// PersonFieldDefinition represents a (key,value) field pair definition for a person.
+//
+// This is organization-specific.
+type PersonFieldDefinition struct {
+	ID             uint64              `gorm:"column:id;primaryKey;not null;autoIncrement"`
+	OrganizationID uint64              `gorm:"column:organization_id;not null;uniqueIndex:idx_unique_person_field_definition,priority:1"`
+	Organization   *Organization       `json:"-" gorm:"belongsTo;constraint:fk_person_field_definition_organization,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:organization_id;references:id"`
+	Name           string              `gorm:"column:name;not null;size:256;type:varchar(256) collate nocase;uniqueIndex:idx_unique_person_field_definition,priority:2"`
+	AllowEmpty     bool                `gorm:"column:allow_empty;not null;default:0"`
+	AllowedValues  sqltype.StringArray `gorm:"column:allowed_values;type:text"`
+	AllowedRegex   *string             `gorm:"column:allowed_regex;type:text"`
+}
+
+func (PersonFieldDefinition) TableName() string {
+	return "person_field_definition"
 }
