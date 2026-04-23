@@ -97,7 +97,7 @@ func (a *API) PatchOrganizationIDPersonID(ctx context.Context, meta PatchOrganiz
 		err = meta.DB.Transaction(func(tx *gorm.DB) error {
 			for field, value := range meta.Body.Fields {
 				if value == nil {
-					err := meta.DB.Session(&gorm.Session{}).
+					err := tx.Session(&gorm.Session{}).
 						Where("person_id = ?", personID).
 						Where("name = ?", field).
 						Delete(&schema.PersonField{}).
@@ -107,7 +107,7 @@ func (a *API) PatchOrganizationIDPersonID(ctx context.Context, meta PatchOrganiz
 					}
 				} else {
 					var fields []*schema.PersonField
-					err := meta.DB.Session(&gorm.Session{}).
+					err := tx.Session(&gorm.Session{}).
 						Where("person_id = ?", personID).
 						Where("name = ?", field).
 						Find(&fields).
@@ -122,7 +122,7 @@ func (a *API) PatchOrganizationIDPersonID(ctx context.Context, meta PatchOrganiz
 							Name:     field,
 							Value:    *value,
 						}
-						err := meta.DB.Session(&gorm.Session{}).
+						err := tx.Session(&gorm.Session{}).
 							Create(&field).
 							Error
 						if err != nil {
@@ -130,7 +130,7 @@ func (a *API) PatchOrganizationIDPersonID(ctx context.Context, meta PatchOrganiz
 						}
 					} else {
 						field := fields[0]
-						err := meta.DB.Session(&gorm.Session{}).
+						err := tx.Session(&gorm.Session{}).
 							Model(&schema.PersonField{}).
 							Where("id = ?", field.ID).
 							Update("value", *value).
