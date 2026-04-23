@@ -17,6 +17,7 @@ type GetOrganizationIDGroupIDPersonMetadata struct {
 	hasOrganization
 	hasGroup
 	_      string               `api:"httppath:/organization/{organization_id}/group/{group_id}/person"`
+	_      string               `api:"produces:application/json,text/csv"`
 	_      string               `api:"doc" description:"Get the people in the group."`
 	_      string               `api:"notes" description:"This gets the people in the group."`
 	Filter *string              `api:"query:filter"`
@@ -41,6 +42,7 @@ type GetOrganizationIDGroupRootPersonMetadata struct {
 	hasOrganization
 	Group  schema.Group         `api:"database.query:where:parent_id IS NULL AND organization_id = ?, OrganizationID"`
 	_      string               `api:"httppath:/organization/{organization_id}/group/root/person"`
+	_      string               `api:"produces:application/json,text/csv"`
 	_      string               `api:"doc" description:"Get the persons in the group."`
 	_      string               `api:"notes" description:"This gets the persons in the group."`
 	Filter *string              `api:"query:filter"`
