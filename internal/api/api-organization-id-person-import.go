@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/downballot/downballot/downballotapi"
@@ -198,6 +199,7 @@ func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrgan
 					}
 				}
 			}
+			slices.Sort(votes)
 
 			finalValue := ""
 			if len(votes) > 0 {
