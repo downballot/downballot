@@ -53,3 +53,7 @@ require (
 	modernc.org/memory v1.11.0 // indirect
 	modernc.org/sqlite v1.41.0 // indirect
 )
+
+replace github.com/threatmate/restfulwrapper => github.com/tekkamanendless/restfulwrapper v0.1.5-0.20260423135728-9f42d58de800
+
+//replace github.com/threatmate/restfulwrapper => ../../tekkamanendless/restfulwrapper

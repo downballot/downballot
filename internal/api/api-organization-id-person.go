@@ -19,6 +19,7 @@ type GetOrganizationIDPersonMetadata struct {
 	downballotwrapper.UseDatabase
 	hasOrganization
 	_      string               `api:"httppath:/organization/{organization_id}/person"`
+	_      string               `api:"produces:application/json,text/csv"`
 	_      string               `api:"doc" description:"List the persons."`
 	_      string               `api:"notes" description:"This lists the persons."`
 	Filter *string              `api:"query:filter"`
