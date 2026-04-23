@@ -69,6 +69,7 @@ func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrgan
 
 	const (
 		ColumnBirthdayYear                  = "birthday_year"
+		ColumnCoordinates                   = "coordinates"
 		ColumnCounty                        = "county"
 		ColumnDistrictRepresentative        = "district_representative"
 		ColumnDistrictSchool                = "district_school"
