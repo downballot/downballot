@@ -85,6 +85,7 @@ func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrgan
 		ColumnResidentialAddressDevelopment = "residential_address_development"
 		ColumnMailingAddress                = "mailing_address"
 		ColumnVoterID                       = "voter_id"
+		ColumnVotingHistory                 = "voting_history"
 	)
 	columnMap := map[string]string{
 		"year_of_birth":             ColumnBirthdayYear,
@@ -187,13 +188,22 @@ func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrgan
 		}
 
 		// Build the voting history.
-		for name, value := range data {
-			if strings.HasPrefix(name, "voting_history_") {
-				newName := strings.ToLower(value)
-				if newName != "" {
-					fields["voting_history."+newName] = "yes"
+		{
+			votes := []string{}
+			for name, value := range data {
+				if strings.HasPrefix(name, "voting_history_") {
+					vote := strings.ToLower(value)
+					if vote != "" {
+						votes = append(votes, vote)
+					}
 				}
 			}
+
+			finalValue := ""
+			if len(votes) > 0 {
+				finalValue = "," + strings.Join(votes, ",") + "," // We want to bracket everything with commas for easier searches later.
+			}
+			fields[ColumnVotingHistory] = finalValue
 		}
 
 		person := &schema.Person{
