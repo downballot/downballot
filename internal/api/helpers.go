@@ -168,7 +168,7 @@ func filterPersons(ctx context.Context, db *gorm.DB, userID uint64, organization
 
 	query := db.Session(&gorm.Session{})
 
-	var joinCount uint
+	fieldTableMap := map[string]string{} // This maps a field name to the table that represents it.
 	var f func(clause filter.Clause, groupQuery *gorm.DB)
 	f = func(clause filter.Clause, groupQuery *gorm.DB) {
 		slog.DebugContext(ctx, fmt.Sprintf("f: clause: %+v", clause))
@@ -176,14 +176,21 @@ func filterPersons(ctx context.Context, db *gorm.DB, userID uint64, organization
 		case *filter.ClauseCondition:
 			slog.DebugContext(ctx, fmt.Sprintf("f: condition: %+v", typedClause))
 
-			joinCount++
-			query = query.Joins("LEFT OUTER JOIN person_field AS person_field_join" + fmt.Sprintf("%d", joinCount) + " ON person.id = person_field_join" + fmt.Sprintf("%d", joinCount) + ".person_id")
-			groupQuery = groupQuery.Where("person_field_join"+fmt.Sprintf("%d", joinCount)+".name = ?", typedClause.Name)
+			var fieldTableName string
+			if fieldTableMap[typedClause.Name] != "" {
+				fieldTableName = fieldTableMap[typedClause.Name]
+			} else {
+				fieldTableName = "person_field_join" + fmt.Sprintf("%d", len(fieldTableMap)+1)
+				fieldTableMap[typedClause.Name] = fieldTableName
+
+				query = query.Joins("LEFT OUTER JOIN person_field AS " + fieldTableName + " ON person.id = " + fieldTableName + ".person_id")
+				query = query.Where(fieldTableName+".name = ?", typedClause.Name)
+			}
 			switch typedClause.Operation {
 			case filter.OperationEquals:
-				groupQuery = groupQuery.Where("person_field_join"+fmt.Sprintf("%d", joinCount)+".value = ?", typedClause.Value)
+				groupQuery = groupQuery.Where(fieldTableName+".value = ?", typedClause.Value)
 			case filter.OperationWildcard:
-				groupQuery = groupQuery.Where("person_field_join"+fmt.Sprintf("%d", joinCount)+".value LIKE ?", strings.ReplaceAll(typedClause.Value, "*", "%"))
+				groupQuery = groupQuery.Where(fieldTableName+".value LIKE ?", strings.ReplaceAll(typedClause.Value, "*", "%"))
 			default:
 				slog.WarnContext(ctx, fmt.Sprintf("Unknown operation: %s", typedClause.Operation))
 			}
