@@ -17,6 +17,7 @@ func Migrate(db *gorm.DB) error {
 		schema.UserOrganizationMap{},
 		schema.Person{},
 		schema.PersonField{},
+		schema.PersonFieldDefinition{},
 	)
 	if err != nil {
 		return fmt.Errorf("could not auto-migrate database: %w", err)
