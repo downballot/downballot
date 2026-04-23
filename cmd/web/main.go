@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"os"
+	"path/filepath"
 	"runtime"
 	"slices"
 	"strconv"
@@ -35,9 +36,36 @@ func main() {
 		if err == nil {
 			logrus.SetLevel(logLevel)
 
-			if logLevel == logrus.DebugLevel {
-				slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})))
+			slogConfig := slog.HandlerOptions{
+				Level:     slog.LevelInfo,
+				AddSource: true,
+				ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
+					if a.Key == slog.SourceKey {
+						source, _ := a.Value.Any().(*slog.Source)
+						if source != nil {
+							source.File = filepath.Base(source.File)
+						}
+					}
+					return a
+				},
 			}
+			switch logLevel {
+			case logrus.TraceLevel:
+				slogConfig.Level = slog.LevelDebug
+			case logrus.DebugLevel:
+				slogConfig.Level = slog.LevelDebug
+			case logrus.InfoLevel:
+				slogConfig.Level = slog.LevelInfo
+			case logrus.WarnLevel:
+				slogConfig.Level = slog.LevelWarn
+			case logrus.ErrorLevel:
+				slogConfig.Level = slog.LevelError
+			case logrus.PanicLevel:
+				slogConfig.Level = slog.LevelError
+			case logrus.FatalLevel:
+				slogConfig.Level = slog.LevelError
+			}
+			slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slogConfig)))
 		} else {
 			slog.WarnContext(ctx, fmt.Sprintf("Unknown log level: %q", value))
 		}

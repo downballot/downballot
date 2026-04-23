@@ -130,6 +130,7 @@ func (a *API) PatchOrganizationIDPersonID(ctx context.Context, meta PatchOrganiz
 					} else {
 						field := fields[0]
 						err := meta.DB.Session(&gorm.Session{}).
+							Model(&schema.PersonField{}).
 							Where("id = ?", field.ID).
 							Update("value", *value).
 							Error
