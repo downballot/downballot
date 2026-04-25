@@ -87,6 +87,8 @@ func (a *API) PostAuthenticationLogin(ctx context.Context, meta PostAuthenticati
 		return output, err
 	}
 
+	output.Message = "OK"
+	output.Success = true
 	output.Data.UserID = meta.Body.Username
 	output.Data.Token = tokenString
 	return output, nil
@@ -106,6 +108,8 @@ func (a *API) PostAuthenticationResetPassword(ctx context.Context, meta PostAuth
 
 	// TODO: ATTEMPT TO RESET THE PASSWORD
 
+	output.Message = "OK"
+	output.Success = true
 	output.Data.Email = meta.Body.Username
 	return output, nil
 }
@@ -122,12 +126,17 @@ type GetAuthenticationStatusMetadata struct {
 
 func (a *API) GetAuthenticationStatus(ctx context.Context, meta GetAuthenticationStatusMetadata) (output downballotapi.Envelope[downballotapi.AuthenticationStatusResponse], err error) {
 	if meta.CurrentUser != nil {
+		output.Message = "OK"
+		output.Success = true
 		output.Data.User = &downballotapi.AuthenticationStatusUser{
 			ID:    fmt.Sprintf("%d", meta.CurrentUser.ID),
 			Email: meta.CurrentUser.EmailAddress,
 			Name:  meta.CurrentUser.Name,
 			Admin: meta.CurrentUser.SystemAdmin,
 		}
+	} else {
+		output.Message = "Not authenticated"
+		output.Success = false
 	}
 
 	return output, nil

@@ -34,6 +34,8 @@ func (a *API) GetOrganizationIDGroupID(ctx context.Context, meta GetOrganization
 	if meta.Group.ParentID != nil {
 		o.ParentID = fmt.Sprintf("%d", *meta.Group.ParentID)
 	}
+	output.Message = "OK"
+	output.Success = true
 	output.Data.Group = o
 	return output, nil
 }
@@ -57,6 +59,8 @@ func (a *API) GetOrganizationIDGroupRoot(ctx context.Context, meta GetOrganizati
 	if meta.Group.ParentID != nil {
 		o.ParentID = fmt.Sprintf("%d", *meta.Group.ParentID)
 	}
+	output.Message = "OK"
+	output.Success = true
 	output.Data.Group = o
 	return output, nil
 }

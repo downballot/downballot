@@ -217,6 +217,8 @@ func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrgan
 		persons = append(persons, person)
 	}
 
+	output.Message = "OK"
+	output.Success = true
 	output.Data.Records = uint64(len(persons))
 	err = meta.DB.Transaction(func(tx *gorm.DB) error {
 		err := tx.Session(&gorm.Session{NewDB: true}).

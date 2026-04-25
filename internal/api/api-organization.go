@@ -94,6 +94,8 @@ func (a *API) PostOrganization(ctx context.Context, meta PostOrganizationMetadat
 			return err
 		}
 
+		output.Message = "OK"
+		output.Success = true
 		output.Data.ID = fmt.Sprintf("%d", organization.ID)
 		output.Data.Name = organization.Name
 

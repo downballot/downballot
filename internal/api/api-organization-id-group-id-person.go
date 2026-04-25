@@ -56,6 +56,8 @@ func (a *API) GetOrganizationIDGroupRootPerson(ctx context.Context, meta GetOrga
 		return output, err
 	}
 
+	output.Message = "OK"
+	output.Success = true
 	output.Data.Persons = persons
 	return output, nil
 }

@@ -32,6 +32,8 @@ func (a *API) GetOrganizationIDPerson(ctx context.Context, meta GetOrganizationI
 	if err != nil {
 		return output, err
 	}
+	output.Message = "OK"
+	output.Success = true
 	output.Data.Persons = persons
 	return output, nil
 }
@@ -59,6 +61,8 @@ func (a *API) GetOrganizationIDPersonID(ctx context.Context, meta GetOrganizatio
 		return output, restfulwrapper.NewAPIResponseError(http.StatusNotFound, "")
 	}
 
+	output.Message = "OK"
+	output.Success = true
 	output.Data.Person = persons[0]
 	return output, nil
 }
@@ -156,6 +160,8 @@ func (a *API) PatchOrganizationIDPersonID(ctx context.Context, meta PatchOrganiz
 		return output, restfulwrapper.NewAPIResponseError(http.StatusNotFound, "")
 	}
 
+	output.Message = "OK"
+	output.Success = true
 	output.Data.Person = persons[0]
 	return output, nil
 }

@@ -75,6 +75,8 @@ func (a *API) PostOrganizationIDUser(ctx context.Context, meta PostOrganizationI
 		OrganizationID: meta.Organization.ID,
 	}
 
+	output.Message = "OK"
+	output.Success = true
 	output.Data.UserID = fmt.Sprintf("%d", user.ID)
 	err = meta.DB.Transaction(func(tx *gorm.DB) error {
 		err = tx.Session(&gorm.Session{NewDB: true}).

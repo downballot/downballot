@@ -121,6 +121,8 @@ func (a *API) GetOrganizationIDGroup(ctx context.Context, meta GetOrganizationID
 		return output, err
 	}
 
+	output.Message = "OK"
+	output.Success = true
 	output.Data.Groups = []*downballotapi.Group{}
 	for _, group := range groups {
 		o := &downballotapi.Group{
