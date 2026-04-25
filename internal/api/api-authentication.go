@@ -118,10 +118,9 @@ func (a *API) PostAuthenticationResetPassword(ctx context.Context, meta PostAuth
 type GetAuthenticationStatusMetadata struct {
 	restfulwrapper.HTTPMethodGET
 	downballotwrapper.MayHaveAuthenticatedUser
-	_    string                            `api:"httppath:/authentication/status"`
-	_    string                            `api:"doc" description:"Status."`
-	_    string                            `api:"notes" description:"This checks the validity of the user's token."`
-	Body downballotapi.RegisterUserRequest `api:"body"`
+	_ string `api:"httppath:/authentication/status"`
+	_ string `api:"doc" description:"Status."`
+	_ string `api:"notes" description:"This checks the validity of the user's token."`
 }
 
 func (a *API) GetAuthenticationStatus(ctx context.Context, meta GetAuthenticationStatusMetadata) (output downballotapi.Envelope[downballotapi.AuthenticationStatusResponse], err error) {
