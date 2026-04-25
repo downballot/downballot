@@ -20,22 +20,27 @@ type Organization struct {
 	Name string `json:"name"`
 }
 
-// AddUserToOrganizationRequest TODO
+// GetOrganizationResponse is the response from getting an organization
+type GetOrganizationResponse struct {
+	Organization Organization `json:"organization"`
+}
+
+// AddUserToOrganizationRequest TODO:
 type AddUserToOrganizationRequest struct {
 	Username string `json:"username"`
 }
 
-// AddUserToOrganizationResponse TODO
+// AddUserToOrganizationResponse TODO:
 type AddUserToOrganizationResponse struct {
 	UserID string `json:"user_id"`
 }
 
-// AddUserToGroupRequest TODO
+// AddUserToGroupRequest TODO:
 type AddUserToGroupRequest struct {
 	GroupID string `json:"group_id"`
 }
 
-// AddUserToGroupResponse TODO
+// AddUserToGroupResponse TODO:
 type AddUserToGroupResponse struct {
 	GroupID string `json:"group_id"`
 }
