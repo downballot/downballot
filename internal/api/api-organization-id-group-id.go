@@ -28,8 +28,9 @@ type GetOrganizationIDGroupIDMetadata struct {
 
 func (a *API) GetOrganizationIDGroupID(ctx context.Context, meta GetOrganizationIDGroupIDMetadata) (output downballotapi.Envelope[downballotapi.GetGroupResponse], err error) {
 	o := &downballotapi.Group{
-		ID:   fmt.Sprintf("%d", meta.Group.ID),
-		Name: meta.Group.Name,
+		ID:     fmt.Sprintf("%d", meta.Group.ID),
+		Name:   meta.Group.Name,
+		Filter: meta.Group.Filter,
 	}
 	if meta.Group.ParentID != nil {
 		o.ParentID = fmt.Sprintf("%d", *meta.Group.ParentID)
@@ -53,8 +54,9 @@ type GetOrganizationIDGroupRootMetadata struct {
 
 func (a *API) GetOrganizationIDGroupRoot(ctx context.Context, meta GetOrganizationIDGroupRootMetadata) (output downballotapi.Envelope[downballotapi.GetGroupResponse], err error) {
 	o := &downballotapi.Group{
-		ID:   fmt.Sprintf("%d", meta.Group.ID),
-		Name: meta.Group.Name,
+		ID:     fmt.Sprintf("%d", meta.Group.ID),
+		Name:   meta.Group.Name,
+		Filter: meta.Group.Filter,
 	}
 	if meta.Group.ParentID != nil {
 		o.ParentID = fmt.Sprintf("%d", *meta.Group.ParentID)
