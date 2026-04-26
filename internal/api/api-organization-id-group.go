@@ -126,8 +126,9 @@ func (a *API) GetOrganizationIDGroup(ctx context.Context, meta GetOrganizationID
 	output.Data.Groups = []*downballotapi.Group{}
 	for _, group := range groups {
 		o := &downballotapi.Group{
-			ID:   fmt.Sprintf("%d", group.ID),
-			Name: group.Name,
+			ID:     fmt.Sprintf("%d", group.ID),
+			Name:   group.Name,
+			Filter: group.Filter,
 		}
 		if group.ParentID != nil {
 			o.ParentID = fmt.Sprintf("%d", *group.ParentID)
