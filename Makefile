@@ -26,3 +26,7 @@ swagger: bin
 	done
 	@echo "Swagger UI installed in static/swagger"
 
+.PHONY: run
+run:
+	go run ./cmd/web/...
+
