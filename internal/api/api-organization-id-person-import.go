@@ -22,15 +22,25 @@ type PostOrganizationIDPersonImportMetadata struct {
 	downballotwrapper.RequireAuthenticatedUser
 	downballotwrapper.UseDatabase
 	hasOrganization
-	_    string        `api:"httppath:/organization/{organization_id}/person/import"`
-	_    string        `api:"doc" description:"Import a new set of persons."`
-	_    string        `api:"notes" description:"This imports a new set of persons."`
-	Body restcsv.Table `api:"body:consumes:text/csv"`
+	_        string        `api:"httppath:/organization/{organization_id}/person/import"`
+	_        string        `api:"doc" description:"Import a new set of persons."`
+	_        string        `api:"notes" description:"This imports a new set of persons."`
+	FieldMap string        `api:"query:field_map" description:"A comma-separated list of field mappings. The format is 'source_field:destination_field'."`
+	Body     restcsv.Table `api:"body:consumes:text/csv"`
 }
 
 func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrganizationIDPersonImportMetadata) (output downballotapi.Envelope[downballotapi.ImportPersonResponse], err error) {
 	slog.InfoContext(ctx, fmt.Sprintf("Header: %+v", meta.Body.Header))
 	slog.InfoContext(ctx, fmt.Sprintf("Rows: (%d)", len(meta.Body.Rows)))
+
+	// Parse the field map.
+	fieldMap := map[string]string{}
+	for _, mapping := range strings.Split(meta.FieldMap, ",") {
+		parts := strings.Split(mapping, ":")
+		csvName := strings.TrimSpace(parts[0])
+		internalName := strings.TrimSpace(parts[1])
+		fieldMap[csvName] = internalName
+	}
 
 	// Trim all of the cells.
 	for c := range meta.Body.Header {
@@ -101,6 +111,9 @@ func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrgan
 		"political_party":           ColumnPoliticalParty,
 		"res_addr_development_name": ColumnResidentialAddressDevelopment,
 		"voter_id":                  ColumnVoterID,
+	}
+	for csvName, internalName := range fieldMap {
+		columnMap[csvName] = internalName
 	}
 
 	var persons []*schema.Person

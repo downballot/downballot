@@ -115,9 +115,10 @@ type PersonFieldDefinition struct {
 	OrganizationID uint64              `gorm:"column:organization_id;not null;uniqueIndex:idx_unique_person_field_definition,priority:1"`
 	Organization   *Organization       `json:"-" gorm:"belongsTo;constraint:fk_person_field_definition_organization,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:organization_id;references:id"`
 	Name           string              `gorm:"column:name;not null;size:256;type:varchar(256) collate nocase;uniqueIndex:idx_unique_person_field_definition,priority:2"`
+	Type           string              `gorm:"column:type;not null;size:256;type:varchar(256) collate nocase"`
 	AllowEmpty     bool                `gorm:"column:allow_empty;not null;default:0"`
 	AllowedValues  sqltype.StringArray `gorm:"column:allowed_values;type:text"`
-	AllowedRegex   *string             `gorm:"column:allowed_regex;type:text"`
+	AllowedRegex   string              `gorm:"column:allowed_regex;type:text"`
 }
 
 func (PersonFieldDefinition) TableName() string {
