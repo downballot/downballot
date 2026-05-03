@@ -4,8 +4,6 @@ import (
 	"log/slog"
 	"os"
 	"testing"
-
-	"github.com/sirupsen/logrus"
 )
 
 // Setup testing things.
@@ -14,7 +12,5 @@ import (
 func Setup(t *testing.T) {
 	if value := os.Getenv("DEBUG"); value == "1" || value == "true" {
 		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})))
-
-		logrus.SetLevel(logrus.DebugLevel)
 	}
 }

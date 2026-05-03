@@ -64,6 +64,18 @@ func (a *API) PostOrganizationIDPersonField(ctx context.Context, meta PostOrgani
 		return output, restfulwrapper.NewAPIBodyError(fmt.Errorf("missing name"))
 	}
 
+	switch meta.Body.Type {
+	case "boolean":
+	case "coordinates":
+	case "date":
+	case "enum":
+	case "integer":
+	case "set":
+	case "string":
+	default:
+		return output, restfulwrapper.NewAPIBodyError(fmt.Errorf("unknown type: %q", meta.Body.Type))
+	}
+
 	personField := schema.PersonFieldDefinition{
 		OrganizationID: meta.Organization.ID,
 		Name:           meta.Body.Name,

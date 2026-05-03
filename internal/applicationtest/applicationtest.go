@@ -27,7 +27,7 @@ func New(t *testing.T, ctx context.Context) *Server {
 	require.NoError(t, err)
 	require.NotNil(t, db)
 
-	app := application.New(db)
+	app := application.New(ctx, db)
 
 	myHandler := http.NewServeMux()
 	{

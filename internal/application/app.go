@@ -1,8 +1,10 @@
 package application
 
 import (
+	"context"
+	"log/slog"
+
 	"github.com/downballot/downballot/internal/cache"
-	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )
 
@@ -13,7 +15,7 @@ type App struct {
 }
 
 // New creates a new app.
-func New(db *gorm.DB) *App {
+func New(ctx context.Context, db *gorm.DB) *App {
 	a := &App{
 		db: db.Session(&gorm.Session{}),
 	}
@@ -21,7 +23,7 @@ func New(db *gorm.DB) *App {
 	var err error
 	a.Cache, err = cache.New(10 * 1000 * 1000) // Use 10MB as the maximum cache size.
 	if err != nil {
-		logrus.Errorf("Could not create the cache: %v", err) // We don't have a context here.  This happens at initialization.
+		slog.ErrorContext(ctx, "Could not create the cache.", "err", err) // We don't have a context here.  This happens at initialization.
 		panic(err)
 	}
 

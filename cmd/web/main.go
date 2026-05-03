@@ -20,9 +20,8 @@ import (
 	"github.com/downballot/downballot/internal/database"
 	"github.com/downballot/downballot/internal/httpextra"
 	"github.com/downballot/downballot/internal/migrator"
-	"github.com/downballot/downballot/internal/slackhook"
-	"github.com/sirupsen/logrus"
-	"github.com/slack-go/slack"
+	"github.com/lmittmann/tint"
+	"github.com/mattn/go-isatty"
 )
 
 func main() {
@@ -31,94 +30,46 @@ func main() {
 	var err error
 
 	// Set the log level.
-	if value, ok := os.LookupEnv("LOG_LEVEL"); ok {
-		logLevel, err := logrus.ParseLevel(value)
-		if err == nil {
-			logrus.SetLevel(logLevel)
-
-			slogConfig := slog.HandlerOptions{
-				Level:     slog.LevelInfo,
-				AddSource: true,
-				ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
-					if a.Key == slog.SourceKey {
-						source, _ := a.Value.Any().(*slog.Source)
-						if source != nil {
-							source.File = filepath.Base(source.File)
-						}
-					}
-					return a
-				},
-			}
-			switch logLevel {
-			case logrus.TraceLevel:
-				slogConfig.Level = slog.LevelDebug
-			case logrus.DebugLevel:
-				slogConfig.Level = slog.LevelDebug
-			case logrus.InfoLevel:
-				slogConfig.Level = slog.LevelInfo
-			case logrus.WarnLevel:
-				slogConfig.Level = slog.LevelWarn
-			case logrus.ErrorLevel:
-				slogConfig.Level = slog.LevelError
-			case logrus.PanicLevel:
-				slogConfig.Level = slog.LevelError
-			case logrus.FatalLevel:
-				slogConfig.Level = slog.LevelError
-			}
-			slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slogConfig)))
-		} else {
-			slog.WarnContext(ctx, fmt.Sprintf("Unknown log level: %q", value))
-		}
-	}
-
-	// Handle Slack early on, since the results from this section will dictate how
-	// logs are treated.
 	{
-		slackChannel := os.Getenv("SLACK_CHANNEL")
-		slackLevel := os.Getenv("SLACK_LEVEL")
-		if slackLevel == "" {
-			slackLevel = "error"
+		logLevel := os.Getenv("LOG_LEVEL")
+		if logLevel == "" {
+			logLevel = "info"
 		}
-		slackToken := os.Getenv("SLACK_TOKEN")
-		slog.InfoContext(ctx, fmt.Sprintf("Slack channel: %s", slackChannel))
-		slog.InfoContext(ctx, fmt.Sprintf("Slack level: %s", slackLevel))
-		if slackToken == "" {
-			slog.InfoContext(ctx, "Slack token: n/a")
-		} else {
-			slog.InfoContext(ctx, "Slack token: ********")
+		slogConfig := slog.HandlerOptions{
+			Level:     slog.LevelInfo,
+			AddSource: true,
+			ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
+				if a.Key == slog.SourceKey {
+					source, _ := a.Value.Any().(*slog.Source)
+					if source != nil {
+						source.File = filepath.Base(source.File)
+					}
+				}
+				return a
+			},
 		}
-		debugSlack := false
-		if value := os.Getenv("SLACK_DEBUG"); value != "" {
-			var err error
-			debugSlack, err = strconv.ParseBool(value)
-			if err != nil {
-				slog.ErrorContext(ctx, fmt.Sprintf("Could not parse value %q: %v", value, err))
-				os.Exit(1)
-			}
+		switch logLevel {
+		case "debug":
+			slogConfig.Level = slog.LevelDebug
+		case "info":
+			slogConfig.Level = slog.LevelInfo
+		case "warn":
+			slogConfig.Level = slog.LevelWarn
+		case "error":
+			slogConfig.Level = slog.LevelError
+		default:
+			slog.WarnContext(ctx, fmt.Sprintf("Unknown log level: %q", logLevel))
 		}
-		slog.InfoContext(ctx, fmt.Sprintf("Debug slack: %t", debugSlack))
-		if slackToken != "" && slackChannel != "" {
-			// Parse the slack log level.
-			minimumSlackLogLevel, err := logrus.ParseLevel(slackLevel)
-			if err != nil {
-				slog.WarnContext(ctx, fmt.Sprintf("Unknown log level: %q", slackLevel))
-				minimumSlackLogLevel = logrus.ErrorLevel // Default to the error level.
-			}
 
-			slackClient := slack.New(slackToken, slack.OptionDebug(debugSlack))
-			hook := slackhook.New(slackClient, slackChannel, minimumSlackLogLevel)
-			logrus.AddHook(hook)
+		w := os.Stderr
+		handler := tint.NewHandler(w, &tint.Options{
+			NoColor:     !isatty.IsTerminal(w.Fd()),
+			AddSource:   slogConfig.AddSource,
+			Level:       slogConfig.Level,
+			ReplaceAttr: slogConfig.ReplaceAttr,
+		})
 
-			slog.InfoContext(ctx, "Slack hook has been registered.")
-
-			/* Re-enable these to verify the Slack hook is working appropriately.
-			slog.DebugContext(ctx, "Debug")
-			slog.InfoContext(ctx, "Info")
-			slog.WarnContext(ctx, "Warn")
-			slog.ErrorContext("Error")
-			os.Exit(0)
-			//*/
-		}
+		slog.SetDefault(slog.New(handler))
 	}
 
 	// Print the Go runtime information.
@@ -230,7 +181,7 @@ func main() {
 		}
 	}
 
-	app := application.New(db)
+	app := application.New(ctx, db)
 
 	apiInstance := api.New()
 	apiInstance.App = app
