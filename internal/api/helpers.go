@@ -193,15 +193,15 @@ func filterPersons(ctx context.Context, db *gorm.DB, userID uint64, organization
 		case *filter.ClauseCondition:
 			slog.DebugContext(ctx, fmt.Sprintf("f: condition: %+v", typedClause))
 
+			personFieldDefinition := fieldDefinitionByNameMap[typedClause.Name]
+			if personFieldDefinition == nil {
+				return fmt.Errorf("unknown field: %s", typedClause.Name)
+			}
+
 			var fieldTableName string
 			if fieldTableMap[typedClause.Name] != "" {
 				fieldTableName = fieldTableMap[typedClause.Name]
 			} else {
-				personFieldDefinition := fieldDefinitionByNameMap[typedClause.Name]
-				if personFieldDefinition == nil {
-					return fmt.Errorf("unknown field: %s", typedClause.Name)
-				}
-
 				fieldTableName = "person_field_join" + fmt.Sprintf("%d", len(fieldTableMap)+1)
 				fieldTableMap[typedClause.Name] = fieldTableName
 
@@ -211,6 +211,20 @@ func filterPersons(ctx context.Context, db *gorm.DB, userID uint64, organization
 			switch typedClause.Operation {
 			case filter.OperationEquals:
 				groupQuery = groupQuery.Where(fieldTableName+".value = ?", typedClause.Value)
+			case filter.OperationGreaterThan:
+				switch personFieldDefinition.Type {
+				case "integer":
+					groupQuery = groupQuery.Where("CAST("+fieldTableName+".value AS INTEGER) > ?", typedClause.Value)
+				default:
+					groupQuery = groupQuery.Where(fieldTableName+".value > ?", typedClause.Value)
+				}
+			case filter.OperationLessThan:
+				switch personFieldDefinition.Type {
+				case "integer":
+					groupQuery = groupQuery.Where("CAST("+fieldTableName+".value AS INTEGER) < ?", typedClause.Value)
+				default:
+					groupQuery = groupQuery.Where(fieldTableName+".value < ?", typedClause.Value)
+				}
 			case filter.OperationWildcard:
 				groupQuery = groupQuery.Where(fieldTableName+".value LIKE ?", strings.ReplaceAll(typedClause.Value, "*", "%"))
 			default:

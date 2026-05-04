@@ -267,8 +267,10 @@ func ParseTokens(tokens []*Token) (Clause, error) {
 		clause.Operation = token.Value
 
 		validOperationMap := map[string]bool{
-			OperationWildcard: true,
-			OperationEquals:   true,
+			OperationWildcard:    true,
+			OperationEquals:      true,
+			OperationGreaterThan: true,
+			OperationLessThan:    true,
 		}
 		if !validOperationMap[clause.Operation] {
 			return nil, fmt.Errorf("invalid operation: %s", clause.Operation)

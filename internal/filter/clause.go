@@ -2,8 +2,10 @@ package filter
 
 // Operation constants.
 const (
-	OperationEquals   string = "="
-	OperationWildcard string = "~"
+	OperationEquals      string = "="
+	OperationGreaterThan string = ">"
+	OperationLessThan    string = "<"
+	OperationWildcard    string = "~"
 )
 
 // Clause is a clause.  Different kinds of clauses should implement this interface.

@@ -6,6 +6,8 @@ import (
 	"strings"
 )
 
+// TODO: CAN WE REMOVE THE LOCAL EVALUATION CODE?  WE SHOULD ONLY BE DOING THIS IN THE DATABASE.
+
 // ClauseCondition is a single condition.
 type ClauseCondition struct {
 	Name      string
