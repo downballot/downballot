@@ -191,6 +191,88 @@ func TestCampaign(t *testing.T) {
 		assert.Empty(t, output.Persons)
 	}
 
+	t.Log("Create the fields.")
+	{
+		fields := []string{
+			"birthday_year",
+			"candidate.connected",
+			"candidate.date_called",
+			"candidate.date_texted",
+			"candidate.do_not_contact",
+			"candidate.donated",
+			"candidate.notes",
+			"candidate.support",
+			"coordinates",
+			"county",
+			"district_representative",
+			"district_school",
+			"district_senate",
+			"name",
+			"name_first",
+			"name_middle",
+			"name_last",
+			"name_suffix",
+			"phone_number",
+			"political_party",
+			"residential_address",
+			"residential_address_development",
+			"mailing_address",
+			"voter_id",
+			"voting_history",
+		}
+		for _, field := range fields {
+			fieldType := "string"
+			allowEmpty := true
+			allowedValues := []string{}
+			allowedRegex := ""
+			switch field {
+			case "birthday_year":
+				fieldType = "integer"
+			case "candidate.connected":
+				fieldType = "boolean"
+				allowEmpty = false
+			case "candidate.date_called":
+				fieldType = "date"
+				allowEmpty = false
+			case "candidate.date_texted":
+				fieldType = "date"
+				allowEmpty = false
+			case "candidate.do_not_contact":
+				fieldType = "boolean"
+				allowEmpty = false
+			case "candidate.donated":
+				fieldType = "boolean"
+			case "candidate.notes":
+				fieldType = "string"
+			case "candidate.support":
+				fieldType = "enum"
+				allowedValues = []string{"-2", "-1", "0", "+1", "+2"}
+			case "coordinates":
+				fieldType = "coordinates"
+			case "district_representative":
+				allowEmpty = false
+			case "district_school":
+				allowEmpty = false
+			case "district_senate":
+				allowEmpty = false
+			case "name":
+				allowEmpty = false
+			case "residential_address":
+				allowEmpty = false
+			case "voting_history":
+				fieldType = "set"
+			}
+			err := adminClient.Do(ctx, http.MethodPost, "/api/v1/organization/"+organizationId+"/person-field", downballotapi.CreatePersonFieldRequest{
+				Name:          field,
+				Type:          fieldType,
+				AllowEmpty:    allowEmpty,
+				AllowedValues: allowedValues,
+				AllowedRegex:  allowedRegex,
+			}, nil)
+			require.NoError(t, err)
+		}
+	}
+
 	t.Log("Import the voter file as the admin user.")
 	{
 		input, err := os.ReadFile("../../test/de_voter_reg.2026.small.csv")

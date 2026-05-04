@@ -146,6 +146,23 @@ func filterPersons(ctx context.Context, db *gorm.DB, userID uint64, organization
 	}
 	slog.InfoContext(ctx, fmt.Sprintf("Hierarchies: (%d)", len(hierarchies)))
 
+	fieldDefinitionByIDMap := map[uint64]*schema.PersonFieldDefinition{}
+	fieldDefinitionByNameMap := map[string]*schema.PersonFieldDefinition{}
+	{
+		var fieldDefinitions []*schema.PersonFieldDefinition
+		err = db.Session(&gorm.Session{}).
+			Where("organization_id = ?", organizationID).
+			Find(&fieldDefinitions).
+			Error
+		if err != nil {
+			return nil, fmt.Errorf("could not find field definitions: %w", err)
+		}
+		for _, fieldDefinition := range fieldDefinitions {
+			fieldDefinitionByIDMap[fieldDefinition.ID] = fieldDefinition
+			fieldDefinitionByNameMap[fieldDefinition.Name] = fieldDefinition
+		}
+	}
+
 	if groupID == nil {
 		hierarchies = condenseHierarchies(hierarchies)
 		slog.InfoContext(ctx, fmt.Sprintf("Consensed hierarchies: (%d)", len(hierarchies)))
@@ -169,8 +186,8 @@ func filterPersons(ctx context.Context, db *gorm.DB, userID uint64, organization
 	query := db.Session(&gorm.Session{})
 
 	fieldTableMap := map[string]string{} // This maps a field name to the table that represents it.
-	var f func(clause filter.Clause, groupQuery *gorm.DB)
-	f = func(clause filter.Clause, groupQuery *gorm.DB) {
+	var f func(clause filter.Clause, groupQuery *gorm.DB) error
+	f = func(clause filter.Clause, groupQuery *gorm.DB) error {
 		slog.DebugContext(ctx, fmt.Sprintf("f: clause: %+v", clause))
 		switch typedClause := clause.(type) {
 		case *filter.ClauseCondition:
@@ -180,11 +197,16 @@ func filterPersons(ctx context.Context, db *gorm.DB, userID uint64, organization
 			if fieldTableMap[typedClause.Name] != "" {
 				fieldTableName = fieldTableMap[typedClause.Name]
 			} else {
+				personFieldDefinition := fieldDefinitionByNameMap[typedClause.Name]
+				if personFieldDefinition == nil {
+					return fmt.Errorf("unknown field: %s", typedClause.Name)
+				}
+
 				fieldTableName = "person_field_join" + fmt.Sprintf("%d", len(fieldTableMap)+1)
 				fieldTableMap[typedClause.Name] = fieldTableName
 
 				query = query.Joins("LEFT OUTER JOIN person_field AS " + fieldTableName + " ON person.id = " + fieldTableName + ".person_id")
-				query = query.Where(fieldTableName+".name = ?", typedClause.Name)
+				query = query.Where(fieldTableName+".person_field_definition_id = ?", personFieldDefinition.ID)
 			}
 			switch typedClause.Operation {
 			case filter.OperationEquals:
@@ -192,7 +214,7 @@ func filterPersons(ctx context.Context, db *gorm.DB, userID uint64, organization
 			case filter.OperationWildcard:
 				groupQuery = groupQuery.Where(fieldTableName+".value LIKE ?", strings.ReplaceAll(typedClause.Value, "*", "%"))
 			default:
-				slog.WarnContext(ctx, fmt.Sprintf("Unknown operation: %s", typedClause.Operation))
+				return fmt.Errorf("unknown operation: %s", typedClause.Operation)
 			}
 		case *filter.ClauseGroup:
 			slog.DebugContext(ctx, fmt.Sprintf("f: group: %+v", typedClause))
@@ -201,17 +223,24 @@ func filterPersons(ctx context.Context, db *gorm.DB, userID uint64, organization
 				switch typedClause.Operation {
 				case filter.ClauseGroupOperationAnd:
 					newQuery := db.Session(&gorm.Session{NewDB: true, Initialized: true})
-					f(groupClause, newQuery)
+					err = f(groupClause, newQuery)
+					if err != nil {
+						return err
+					}
 					groupQuery.Where(newQuery)
 				case filter.ClauseGroupOperationOr:
 					newQuery := db.Session(&gorm.Session{NewDB: true, Initialized: true})
-					f(groupClause, newQuery)
+					err = f(groupClause, newQuery)
+					if err != nil {
+						return err
+					}
 					groupQuery.Or(newQuery)
 				}
 			}
 		default:
-			slog.WarnContext(ctx, fmt.Sprintf("Unknown clause type: %T", typedClause))
+			return fmt.Errorf("unknown clause type: %T", typedClause)
 		}
+		return nil
 	}
 
 	{
@@ -250,7 +279,10 @@ func filterPersons(ctx context.Context, db *gorm.DB, userID uint64, organization
 				return nil, err
 			}
 			newQuery := db.Session(&gorm.Session{NewDB: true, Initialized: true})
-			f(groupClause, newQuery)
+			err = f(groupClause, newQuery)
+			if err != nil {
+				return nil, err
+			}
 			query = query.Where(newQuery)
 		}
 	}
@@ -273,7 +305,7 @@ func filterPersons(ctx context.Context, db *gorm.DB, userID uint64, organization
 
 	output := make([]*downballotapi.Person, 0, len(persons))
 
-	personFieldsMap := map[uint64][]*schema.PersonField{}
+	personFieldsMap := map[uint64]map[string]string{}
 	{
 		var fields []*schema.PersonField
 		query := db.Session(&gorm.Session{}).
@@ -289,9 +321,13 @@ func filterPersons(ctx context.Context, db *gorm.DB, userID uint64, organization
 		}
 		for _, field := range fields {
 			if personFieldsMap[field.PersonID] == nil {
-				personFieldsMap[field.PersonID] = []*schema.PersonField{}
+				personFieldsMap[field.PersonID] = map[string]string{}
 			}
-			personFieldsMap[field.PersonID] = append(personFieldsMap[field.PersonID], field)
+			personFieldDefinition := fieldDefinitionByIDMap[field.PersonFieldDefinitionID]
+			if personFieldDefinition == nil {
+				return nil, fmt.Errorf("unknown field definition: %d", field.PersonFieldDefinitionID)
+			}
+			personFieldsMap[field.PersonID][personFieldDefinition.Name] = field.Value
 		}
 	}
 
@@ -303,8 +339,8 @@ func filterPersons(ctx context.Context, db *gorm.DB, userID uint64, organization
 		}
 
 		fields := personFieldsMap[person.ID]
-		for _, field := range fields {
-			o.Fields[field.Name] = field.Value
+		for name, value := range fields {
+			o.Fields[name] = value
 		}
 
 		output = append(output, o)

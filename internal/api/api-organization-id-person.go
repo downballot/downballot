@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -90,6 +91,23 @@ func (a *API) PatchOrganizationIDPersonID(ctx context.Context, meta PatchOrganiz
 		return output, restfulwrapper.NewAPIResponseError(http.StatusNotFound, "")
 	}
 
+	fieldDefinitionByIDMap := map[uint64]*schema.PersonFieldDefinition{}
+	fieldDefinitionByNameMap := map[string]*schema.PersonFieldDefinition{}
+	{
+		var fieldDefinitions []*schema.PersonFieldDefinition
+		err = meta.DB.Session(&gorm.Session{}).
+			Where("organization_id = ?", meta.OrganizationID).
+			Find(&fieldDefinitions).
+			Error
+		if err != nil {
+			return output, fmt.Errorf("could not find field definitions: %w", err)
+		}
+		for _, fieldDefinition := range fieldDefinitions {
+			fieldDefinitionByIDMap[fieldDefinition.ID] = fieldDefinition
+			fieldDefinitionByNameMap[fieldDefinition.Name] = fieldDefinition
+		}
+	}
+
 	{
 		person := persons[0]
 
@@ -100,10 +118,15 @@ func (a *API) PatchOrganizationIDPersonID(ctx context.Context, meta PatchOrganiz
 
 		err = meta.DB.Transaction(func(tx *gorm.DB) error {
 			for field, value := range meta.Body.Fields {
+				fieldDefinition := fieldDefinitionByNameMap[field]
+				if fieldDefinition == nil {
+					return fmt.Errorf("unknown field: %s", field)
+				}
+
 				if value == nil {
 					err := tx.Session(&gorm.Session{}).
 						Where("person_id = ?", personID).
-						Where("name = ?", field).
+						Where("person_field_definition_id = ?", fieldDefinition.ID).
 						Delete(&schema.PersonField{}).
 						Error
 					if err != nil {
@@ -113,7 +136,7 @@ func (a *API) PatchOrganizationIDPersonID(ctx context.Context, meta PatchOrganiz
 					var fields []*schema.PersonField
 					err := tx.Session(&gorm.Session{}).
 						Where("person_id = ?", personID).
-						Where("name = ?", field).
+						Where("person_field_definition_id = ?", fieldDefinition.ID).
 						Find(&fields).
 						Error
 					if err != nil {
@@ -122,9 +145,9 @@ func (a *API) PatchOrganizationIDPersonID(ctx context.Context, meta PatchOrganiz
 
 					if len(fields) == 0 {
 						field := schema.PersonField{
-							PersonID: personID,
-							Name:     field,
-							Value:    *value,
+							PersonID:                personID,
+							PersonFieldDefinitionID: fieldDefinition.ID,
+							Value:                   *value,
 						}
 						err := tx.Session(&gorm.Session{}).
 							Create(&field).

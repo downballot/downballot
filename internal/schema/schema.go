@@ -96,11 +96,12 @@ func (Person) TableName() string {
 //
 // This is how we'll represent dynamic data, such as the person's name, address, phone number, etc.
 type PersonField struct {
-	ID       uint64  `gorm:"column:id;primaryKey;not null;autoIncrement"`
-	PersonID uint64  `gorm:"column:person_id;not null;uniqueIndex:idx_unique_person_field,priority:1"`
-	Person   *Person `json:"-" gorm:"belongsTo;constraint:fk_person_field_person,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:person_id;references:id"`
-	Name     string  `gorm:"column:name;not null;size:256;type:varchar(256) collate nocase;uniqueIndex:idx_unique_person_field,priority:2;index:idx_person_field_name_value,priority:1"`
-	Value    string  `gorm:"column:value;not null;size:256;type:varchar(256) collate nocase;index:idx_person_field_name_value,priority:2"`
+	ID                      uint64                 `gorm:"column:id;primaryKey;not null;autoIncrement"`
+	PersonID                uint64                 `gorm:"column:person_id;not null;uniqueIndex:idx_unique_person_field,priority:1"`
+	Person                  *Person                `json:"-" gorm:"belongsTo;constraint:fk_person_field_person,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:person_id;references:id"`
+	PersonFieldDefinitionID uint64                 `gorm:"column:person_field_definition_id;not null;uniqueIndex:idx_unique_person_field,priority:2"`
+	PersonFieldDefinition   *PersonFieldDefinition `json:"-" gorm:"belongsTo;constraint:fk_person_field_person_field_definition,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:person_field_definition_id;references:id"`
+	Value                   string                 `gorm:"column:value;not null;size:256;type:varchar(256) collate nocase;index:idx_person_field_name_value,priority:2"`
 }
 
 func (PersonField) TableName() string {

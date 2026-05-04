@@ -33,12 +33,36 @@ func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrgan
 	slog.InfoContext(ctx, fmt.Sprintf("Header: %+v", meta.Body.Header))
 	slog.InfoContext(ctx, fmt.Sprintf("Rows: (%d)", len(meta.Body.Rows)))
 
+	var fieldDefinitions []*schema.PersonFieldDefinition
+	err = meta.DB.Session(&gorm.Session{}).
+		Where("organization_id = ?", meta.Organization.ID).
+		Find(&fieldDefinitions).
+		Error
+	if err != nil {
+		return output, fmt.Errorf("could not find field definitions: %w", err)
+	}
+
+	fieldDefinitionByNameMap := map[string]*schema.PersonFieldDefinition{}
+	for _, fieldDefinition := range fieldDefinitions {
+		fieldDefinitionByNameMap[fieldDefinition.Name] = fieldDefinition
+	}
+
 	// Parse the field map.
 	fieldMap := map[string]string{}
 	for _, mapping := range strings.Split(meta.FieldMap, ",") {
-		parts := strings.Split(mapping, ":")
+		mapping = strings.TrimSpace(mapping)
+		if mapping == "" {
+			continue
+		}
+		parts := strings.SplitN(mapping, ":", 2)
+		if len(parts) != 2 {
+			return output, restfulwrapper.NewAPIQueryParameterError("field_map", fmt.Errorf("invalid mapping: %q", mapping))
+		}
 		csvName := strings.TrimSpace(parts[0])
 		internalName := strings.TrimSpace(parts[1])
+		if _, ok := fieldDefinitionByNameMap[internalName]; !ok {
+			return output, fmt.Errorf("unknown field: %q", internalName)
+		}
 		fieldMap[csvName] = internalName
 	}
 
@@ -244,10 +268,14 @@ func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrgan
 		var fields []*schema.PersonField
 		for _, person := range persons {
 			for name, value := range person.Fields {
+				personFieldDefinition := fieldDefinitionByNameMap[name]
+				if personFieldDefinition == nil {
+					continue
+				}
 				field := &schema.PersonField{
-					PersonID: person.ID,
-					Name:     name,
-					Value:    value,
+					PersonID:                person.ID,
+					PersonFieldDefinitionID: personFieldDefinition.ID,
+					Value:                   value,
 				}
 				fields = append(fields, field)
 			}
