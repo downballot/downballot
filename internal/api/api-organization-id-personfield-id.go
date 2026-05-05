@@ -17,6 +17,31 @@ type hasPersonField struct {
 	PersonField   schema.PersonFieldDefinition `api:"database.query:where:id = ?,PersonFieldID"`
 }
 
+type GetOrganizationIDPersonFieldIDMetadata struct {
+	restfulwrapper.HTTPMethodGET
+	downballotwrapper.RequireAuthenticatedUser
+	downballotwrapper.UseDatabase
+	hasOrganization
+	hasPersonField
+	_ string `api:"httppath:/organization/{organization_id}/person-field/{person_field_id}"`
+	_ string `api:"doc" description:"Get the person field."`
+	_ string `api:"notes" description:"This gets the person field."`
+}
+
+func (a *API) GetOrganizationIDPersonFieldID(ctx context.Context, meta GetOrganizationIDPersonFieldIDMetadata) (output downballotapi.Envelope[downballotapi.GetPersonFieldResponse], err error) {
+	output.Message = "OK"
+	output.Success = true
+	output.Data.PersonField = &downballotapi.PersonField{
+		ID:            fmt.Sprintf("%d", meta.PersonField.ID),
+		Name:          meta.PersonField.Name,
+		Type:          meta.PersonField.Type,
+		AllowEmpty:    meta.PersonField.AllowEmpty,
+		AllowedValues: meta.PersonField.AllowedValues,
+		AllowedRegex:  meta.PersonField.AllowedRegex,
+	}
+	return output, nil
+}
+
 type PatchOrganizationIDPersonFieldIDMetadata struct {
 	restfulwrapper.HTTPMethodPATCH
 	downballotwrapper.RequireAuthenticatedUser
