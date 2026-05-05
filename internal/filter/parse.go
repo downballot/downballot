@@ -96,7 +96,7 @@ func Tokenize(input string) ([]*Token, error) {
 						currentToken.Value += string(input[i])
 					}
 				}
-			case '<', '>', '=', '-', '+', '/', '*', '&', '|', '%', '^':
+			case '<', '>', '=', '-', '+', '/', '*', '&', '|', '%', '^', '!':
 				if currentToken == nil {
 					currentToken = &Token{
 						Value:  string(input[i]),
@@ -267,10 +267,13 @@ func ParseTokens(tokens []*Token) (Clause, error) {
 		clause.Operation = token.Value
 
 		validOperationMap := map[string]bool{
-			OperationWildcard:    true,
-			OperationEquals:      true,
-			OperationGreaterThan: true,
-			OperationLessThan:    true,
+			OperationWildcard:           true,
+			OperationEquals:             true,
+			OperationNotEquals:          true,
+			OperationGreaterThan:        true,
+			OperationGreaterThanOrEqual: true,
+			OperationLessThan:           true,
+			OperationLessThanOrEqual:    true,
 		}
 		if !validOperationMap[clause.Operation] {
 			return nil, fmt.Errorf("invalid operation: %s", clause.Operation)

@@ -93,6 +93,7 @@ func (erw *EntityReaderWriter) Write(resp *restful.Response, status int, v any) 
 		status = http.StatusInternalServerError
 		contents = []byte(err.Error())
 	}
+	resp.Header().Set("Content-Type", "text/csv")
 	resp.WriteHeader(status)
 	_, err = resp.Write(contents)
 	if err != nil {

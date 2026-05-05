@@ -211,6 +211,8 @@ func filterPersons(ctx context.Context, db *gorm.DB, userID uint64, organization
 			switch typedClause.Operation {
 			case filter.OperationEquals:
 				groupQuery = groupQuery.Where(fieldTableName+".value = ?", typedClause.Value)
+			case filter.OperationNotEquals:
+				groupQuery = groupQuery.Where(fieldTableName+".value != ?", typedClause.Value)
 			case filter.OperationGreaterThan:
 				switch personFieldDefinition.Type {
 				case "integer":
@@ -218,12 +220,26 @@ func filterPersons(ctx context.Context, db *gorm.DB, userID uint64, organization
 				default:
 					groupQuery = groupQuery.Where(fieldTableName+".value > ?", typedClause.Value)
 				}
+			case filter.OperationGreaterThanOrEqual:
+				switch personFieldDefinition.Type {
+				case "integer":
+					groupQuery = groupQuery.Where("CAST("+fieldTableName+".value AS INTEGER) >= ?", typedClause.Value)
+				default:
+					groupQuery = groupQuery.Where(fieldTableName+".value >= ?", typedClause.Value)
+				}
 			case filter.OperationLessThan:
 				switch personFieldDefinition.Type {
 				case "integer":
 					groupQuery = groupQuery.Where("CAST("+fieldTableName+".value AS INTEGER) < ?", typedClause.Value)
 				default:
 					groupQuery = groupQuery.Where(fieldTableName+".value < ?", typedClause.Value)
+				}
+			case filter.OperationLessThanOrEqual:
+				switch personFieldDefinition.Type {
+				case "integer":
+					groupQuery = groupQuery.Where("CAST("+fieldTableName+".value AS INTEGER) <= ?", typedClause.Value)
+				default:
+					groupQuery = groupQuery.Where(fieldTableName+".value <= ?", typedClause.Value)
 				}
 			case filter.OperationWildcard:
 				groupQuery = groupQuery.Where(fieldTableName+".value LIKE ?", strings.ReplaceAll(typedClause.Value, "*", "%"))
