@@ -205,14 +205,13 @@ func filterPersons(ctx context.Context, db *gorm.DB, userID uint64, organization
 				fieldTableName = "person_field_join" + fmt.Sprintf("%d", len(fieldTableMap)+1)
 				fieldTableMap[typedClause.Name] = fieldTableName
 
-				query = query.Joins("LEFT OUTER JOIN person_field AS " + fieldTableName + " ON person.id = " + fieldTableName + ".person_id")
-				query = query.Where(fieldTableName+".person_field_definition_id = ?", personFieldDefinition.ID)
+				query = query.Joins("LEFT OUTER JOIN person_field AS "+fieldTableName+" ON person.id = "+fieldTableName+".person_id AND "+fieldTableName+".person_field_definition_id = ?", personFieldDefinition.ID)
 			}
 			switch typedClause.Operation {
 			case filter.OperationEquals:
 				groupQuery = groupQuery.Where(fieldTableName+".value = ?", typedClause.Value)
 			case filter.OperationNotEquals:
-				groupQuery = groupQuery.Where(fieldTableName+".value != ?", typedClause.Value)
+				groupQuery = groupQuery.Where(fieldTableName+".value IS NULL OR "+fieldTableName+".value != ?", typedClause.Value)
 			case filter.OperationGreaterThan:
 				switch personFieldDefinition.Type {
 				case "integer":
