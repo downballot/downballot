@@ -212,3 +212,50 @@ func (a *API) PatchOrganizationIDPersonID(ctx context.Context, meta PatchOrganiz
 	output.Data.Person = persons[0]
 	return output, nil
 }
+
+type GetOrganizationIDPersonIDAuditMetadata struct {
+	restfulwrapper.HTTPMethodGET
+	downballotwrapper.RequireAuthenticatedUser
+	downballotwrapper.UseDatabase
+	hasOrganization
+	VoterID string               `api:"path:voter_id"`
+	_       string               `api:"httppath:/organization/{organization_id}/person/{voter_id}/audit"`
+	_       string               `api:"doc" description:"Get the person audit."`
+	_       string               `api:"notes" description:"This gets the person audit with the given voter ID."`
+	Fields  *resttype.StringList `api:"query:fields"`
+}
+
+func (a *API) GetOrganizationIDPersonIDAudit(ctx context.Context, meta GetOrganizationIDPersonIDAuditMetadata) (output downballotapi.Envelope[downballotapi.ListPersonAuditsResponse], err error) {
+	filter := "voter_id = " + meta.VoterID
+	limit := 1
+	persons, err := filterPersons(ctx, meta.DB, meta.CurrentUser.ID, meta.Organization.ID, nil /*no group ID*/, &filter, (*[]string)(meta.Fields), limit)
+	if err != nil {
+		return output, err
+	}
+	if len(persons) == 0 {
+		return output, restfulwrapper.NewAPIResponseError(http.StatusNotFound, "")
+	}
+
+	var audits []*schema.PersonAudit
+	err = meta.DB.Session(&gorm.Session{}).
+		Where("person_id = ?", persons[0].ID).
+		Find(&audits).
+		Error
+	if err != nil {
+		return output, fmt.Errorf("could not find audits: %w", err)
+	}
+
+	output.Message = "OK"
+	output.Success = true
+	output.Data.Audits = []*downballotapi.PersonAudit{}
+	for _, audit := range audits {
+		output.Data.Audits = append(output.Data.Audits, &downballotapi.PersonAudit{
+			ID:        fmt.Sprintf("%d", audit.ID),
+			VoterID:   audit.Person.VoterID,
+			Timestamp: resttype.DateTime(audit.Timestamp),
+			OldValue:  audit.OldValue,
+			NewValue:  audit.NewValue,
+		})
+	}
+	return output, nil
+}
