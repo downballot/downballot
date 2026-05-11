@@ -228,7 +228,7 @@ type GetOrganizationIDPersonIDAuditMetadata struct {
 func (a *API) GetOrganizationIDPersonIDAudit(ctx context.Context, meta GetOrganizationIDPersonIDAuditMetadata) (output downballotapi.Envelope[downballotapi.ListPersonAuditsResponse], err error) {
 	filter := "voter_id = " + meta.VoterID
 	limit := 1
-	persons, err := filterPersons(ctx, meta.DB, meta.CurrentUser.ID, meta.Organization.ID, nil /*no group ID*/, &filter, (*[]string)(meta.Fields), limit)
+	persons, err := filterPersons(ctx, meta.DB, meta.CurrentUser.ID, meta.Organization.ID, nil /*no group ID*/, &filter, nil /*no fields*/, limit)
 	if err != nil {
 		return output, err
 	}
@@ -236,16 +236,8 @@ func (a *API) GetOrganizationIDPersonIDAudit(ctx context.Context, meta GetOrgani
 		return output, restfulwrapper.NewAPIResponseError(http.StatusNotFound, "")
 	}
 
-	var audits []*schema.PersonAudit
-	err = meta.DB.Session(&gorm.Session{}).
-		Where("person_id = ?", persons[0].ID).
-		Find(&audits).
-		Error
-	if err != nil {
-		return output, fmt.Errorf("could not find audits: %w", err)
-	}
-
-	fieldDefinitionByNameMap := map[uint64]*schema.PersonFieldDefinition{}
+	fieldDefinitionByIDMap := map[uint64]*schema.PersonFieldDefinition{}
+	fieldDefinitionByNameMap := map[string]*schema.PersonFieldDefinition{}
 	{
 		var fieldDefinitions []*schema.PersonFieldDefinition
 		err = meta.DB.Session(&gorm.Session{}).
@@ -256,15 +248,37 @@ func (a *API) GetOrganizationIDPersonIDAudit(ctx context.Context, meta GetOrgani
 			return output, fmt.Errorf("could not find field definitions: %w", err)
 		}
 		for _, fieldDefinition := range fieldDefinitions {
-			fieldDefinitionByNameMap[fieldDefinition.ID] = fieldDefinition
+			fieldDefinitionByIDMap[fieldDefinition.ID] = fieldDefinition
+			fieldDefinitionByNameMap[fieldDefinition.Name] = fieldDefinition
 		}
+	}
+
+	var audits []*schema.PersonAudit
+	query := meta.DB.Session(&gorm.Session{}).
+		Where("person_id = ?", persons[0].ID)
+	if meta.Fields != nil {
+		fieldDefintionIDs := []uint64{}
+		for _, field := range *meta.Fields {
+			fieldDefinition := fieldDefinitionByNameMap[field]
+			if fieldDefinition == nil {
+				return output, fmt.Errorf("unknown field: %s", field)
+			}
+			fieldDefintionIDs = append(fieldDefintionIDs, fieldDefinition.ID)
+		}
+		query = query.Where("person_field_definition_id IN (?)", fieldDefintionIDs)
+	}
+	err = query.
+		Find(&audits).
+		Error
+	if err != nil {
+		return output, fmt.Errorf("could not find audits: %w", err)
 	}
 
 	output.Message = "OK"
 	output.Success = true
 	output.Data.Audits = []*downballotapi.PersonAudit{}
 	for _, audit := range audits {
-		fieldDefinition := fieldDefinitionByNameMap[audit.PersonFieldDefinitionID]
+		fieldDefinition := fieldDefinitionByIDMap[audit.PersonFieldDefinitionID]
 		if fieldDefinition == nil {
 			return output, fmt.Errorf("unknown field definition: %d", audit.PersonFieldDefinitionID)
 		}
@@ -273,7 +287,7 @@ func (a *API) GetOrganizationIDPersonIDAudit(ctx context.Context, meta GetOrgani
 			ID:        fmt.Sprintf("%d", audit.ID),
 			VoterID:   meta.VoterID,
 			Timestamp: resttype.DateTime(audit.Timestamp),
-			Field:     fieldDefinitionByNameMap[audit.PersonFieldDefinitionID].Name,
+			Field:     fieldDefinition.Name,
 			OldValue:  audit.OldValue,
 			NewValue:  audit.NewValue,
 		})
