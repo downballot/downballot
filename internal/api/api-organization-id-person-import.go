@@ -7,11 +7,13 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/downballot/downballot/downballotapi"
 	"github.com/downballot/downballot/internal/api/downballotwrapper"
 	"github.com/downballot/downballot/internal/api/restcsv"
 	"github.com/downballot/downballot/internal/schema"
+	"github.com/downballot/downballot/internal/schema/sqltype"
 	"github.com/downballot/downballot/internal/stringer"
 	"github.com/threatmate/restfulwrapper"
 	"gorm.io/gorm"
@@ -43,8 +45,10 @@ func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrgan
 	}
 
 	fieldDefinitionByNameMap := map[string]*schema.PersonFieldDefinition{}
+	fieldDefinitionByIDMap := map[uint64]*schema.PersonFieldDefinition{}
 	for _, fieldDefinition := range fieldDefinitions {
 		fieldDefinitionByNameMap[fieldDefinition.Name] = fieldDefinition
+		fieldDefinitionByIDMap[fieldDefinition.ID] = fieldDefinition
 	}
 
 	// Parse the field map.
@@ -228,8 +232,10 @@ func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrgan
 		// Build the voting history.
 		{
 			votes := []string{}
+			votingHistoryFields := []string{}
 			for name, value := range data {
 				if strings.HasPrefix(name, "voting_history_") {
+					votingHistoryFields = append(votingHistoryFields, name)
 					vote := strings.ToLower(value)
 					if vote != "" {
 						votes = append(votes, vote)
@@ -238,11 +244,13 @@ func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrgan
 			}
 			slices.Sort(votes)
 
-			finalValue := ""
-			if len(votes) > 0 {
-				finalValue = "," + strings.Join(votes, ",") + "," // We want to bracket everything with commas for easier searches later.
+			if len(votingHistoryFields) > 0 {
+				finalValue := ""
+				if len(votes) > 0 {
+					finalValue = "," + strings.Join(votes, ",") + "," // We want to bracket everything with commas for easier searches later.
+				}
+				fields[ColumnVotingHistory] = finalValue
 			}
-			fields[ColumnVotingHistory] = finalValue
 		}
 
 		for name, value := range fields {
@@ -268,16 +276,41 @@ func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrgan
 	output.Message = "OK"
 	output.Success = true
 	output.Data.Records = uint64(len(persons))
+
+	existingPersons := []*schema.Person{}
+	voterIDToExistingPersonMap := map[string]*schema.Person{}
+	err = meta.DB.Session(&gorm.Session{}).
+		Where("organization_id = ?", meta.Organization.ID).
+		Find(&existingPersons).
+		Error
+	if err != nil {
+		return output, fmt.Errorf("could not find existing persons: %w", err)
+	}
+	for _, person := range existingPersons {
+		voterIDToExistingPersonMap[person.VoterID] = person
+	}
+
+	newPersons := []*schema.Person{}
+	updatePersons := []*schema.Person{}
+	for _, person := range persons {
+		if existingPerson, ok := voterIDToExistingPersonMap[person.VoterID]; ok {
+			person.ID = existingPerson.ID
+			updatePersons = append(updatePersons, person)
+		} else {
+			newPersons = append(newPersons, person)
+		}
+	}
+
 	err = meta.DB.Transaction(func(tx *gorm.DB) error {
 		err := tx.Session(&gorm.Session{NewDB: true}).
-			CreateInBatches(&persons, 2000).
+			CreateInBatches(&newPersons, 2000).
 			Error
 		if err != nil {
 			return err
 		}
 
 		var fields []*schema.PersonField
-		for _, person := range persons {
+		for _, person := range newPersons {
 			for name, value := range person.Fields {
 				personFieldDefinition := fieldDefinitionByNameMap[name]
 				if personFieldDefinition == nil {
@@ -289,6 +322,130 @@ func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrgan
 					Value:                   value,
 				}
 				fields = append(fields, field)
+			}
+		}
+		err = tx.Session(&gorm.Session{NewDB: true}).
+			CreateInBatches(&fields, 2000).
+			Error
+		if err != nil {
+			return err
+		}
+
+		for _, updatePerson := range updatePersons {
+			person := *updatePerson
+			person.Fields = map[string]string{}
+			{
+				fields := []*schema.PersonField{}
+				err = tx.Session(&gorm.Session{NewDB: true}).
+					Where("person_id = ?", person.ID).
+					Find(&fields).
+					Error
+				if err != nil {
+					return err
+				}
+				for _, field := range fields {
+					fieldDefinition := fieldDefinitionByIDMap[field.PersonFieldDefinitionID]
+					if fieldDefinition == nil {
+						continue
+					}
+					person.Fields[fieldDefinition.Name] = field.Value
+				}
+			}
+
+			// Do not update fields that are blank.
+			//
+			// Basically, we're accepting spreadsheet input, so if a field is blank, then ignore it.
+			updateFields := map[string]*string{}
+			for field, value := range updatePerson.Fields {
+				if value != "" {
+					updateFields[field] = &value
+				}
+			}
+			personID := person.ID
+
+			for field, value := range updateFields {
+				fieldDefinition := fieldDefinitionByNameMap[field]
+				if fieldDefinition == nil {
+					// We should have already defended against this, but play it safe.
+					return fmt.Errorf("unknown field: %s", field)
+				}
+
+				audit := schema.PersonAudit{
+					PersonID:                personID,
+					PersonFieldDefinitionID: fieldDefinition.ID,
+					Timestamp:               sqltype.DateTime(time.Now()),
+				}
+
+				// If the field had a value, then record its old value.
+				if oldValue, ok := person.Fields[field]; ok {
+					audit.OldValue = new(string)
+					*audit.OldValue = oldValue
+				}
+				// If the field has a new value, then record its new value.
+				if value != nil {
+					audit.NewValue = value
+				}
+
+				if audit.OldValue == nil && audit.NewValue == nil {
+					// If the field was added and deleted, then don't do anything.
+					continue
+				}
+				if audit.OldValue != nil && audit.NewValue != nil && *audit.OldValue == *audit.NewValue {
+					// If the field was not changed, then don't do anything.
+					continue
+				}
+
+				if value == nil {
+					err := tx.Session(&gorm.Session{}).
+						Where("person_id = ?", personID).
+						Where("person_field_definition_id = ?", fieldDefinition.ID).
+						Delete(&schema.PersonField{}).
+						Error
+					if err != nil {
+						return fmt.Errorf("could not delete field: %w", err)
+					}
+				} else {
+					var fields []*schema.PersonField
+					err := tx.Session(&gorm.Session{}).
+						Where("person_id = ?", personID).
+						Where("person_field_definition_id = ?", fieldDefinition.ID).
+						Find(&fields).
+						Error
+					if err != nil {
+						return fmt.Errorf("could not find fields: %w", err)
+					}
+
+					if len(fields) == 0 {
+						field := schema.PersonField{
+							PersonID:                personID,
+							PersonFieldDefinitionID: fieldDefinition.ID,
+							Value:                   *value,
+						}
+						err := tx.Session(&gorm.Session{}).
+							Create(&field).
+							Error
+						if err != nil {
+							return fmt.Errorf("could not create field: %w", err)
+						}
+					} else {
+						field := fields[0]
+						err := tx.Session(&gorm.Session{}).
+							Model(&schema.PersonField{}).
+							Where("id = ?", field.ID).
+							Update("value", *value).
+							Error
+						if err != nil {
+							return fmt.Errorf("could not update field: %w", err)
+						}
+					}
+				}
+
+				err := tx.Session(&gorm.Session{}).
+					Create(&audit).
+					Error
+				if err != nil {
+					return fmt.Errorf("could not create audit: %w", err)
+				}
 			}
 		}
 		err = tx.Session(&gorm.Session{NewDB: true}).
