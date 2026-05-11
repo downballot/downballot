@@ -341,7 +341,15 @@ func filterPersons(ctx context.Context, db *gorm.DB, userID uint64, organization
 		query := db.Session(&gorm.Session{}).
 			Where("person_id IN (?)", personIDs)
 		if returnFields != nil {
-			query = query.Where("name IN (?)", *returnFields)
+			fieldDefinitionIDs := []uint64{}
+			for _, fieldName := range *returnFields {
+				fieldDefinition := fieldDefinitionByNameMap[fieldName]
+				if fieldDefinition == nil {
+					return nil, fmt.Errorf("unknown field: %s", fieldName)
+				}
+				fieldDefinitionIDs = append(fieldDefinitionIDs, fieldDefinition.ID)
+			}
+			query = query.Where("person_field_definition_id IN (?)", fieldDefinitionIDs)
 		}
 		err := query.
 			Find(&fields).

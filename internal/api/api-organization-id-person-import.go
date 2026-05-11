@@ -82,11 +82,11 @@ func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrgan
 
 	// Tansform the header:
 	// * All lowercase
-	// * Averything except letters and numbers replaced with "_"
+	// * Averything except letters, numbers, and "." replaced with "_"
 	// * Trim "_" from the ends
 	// * Merge all contiguous "_"
 	{
-		illegalCharacters, err := regexp.Compile(`[^a-z0-9]+`)
+		illegalCharacters, err := regexp.Compile(`[^a-z0-9.]+`)
 		if err != nil {
 			return output, fmt.Errorf("could not compile expression: %w", err)
 		}
@@ -142,6 +142,11 @@ func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrgan
 	}
 	for csvName, internalName := range fieldMap {
 		columnMap[csvName] = internalName
+	}
+
+	// Add all of the field definitions to the column map.
+	for _, fieldDefinition := range fieldDefinitions {
+		columnMap[fieldDefinition.Name] = fieldDefinition.Name
 	}
 
 	var persons []*schema.Person
@@ -253,17 +258,6 @@ func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrgan
 			}
 		}
 
-		for name, value := range fields {
-			fieldDefinition := fieldDefinitionByNameMap[name]
-			if fieldDefinition == nil {
-				return output, fmt.Errorf("unknown field: %q", name)
-			}
-			err = fieldDefinition.Validate(value)
-			if err != nil {
-				return output, fmt.Errorf("invalid value for field %s: %w", name, err)
-			}
-		}
-
 		person := &schema.Person{
 			OrganizationID: meta.Organization.ID,
 		}
@@ -295,40 +289,73 @@ func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrgan
 	for _, person := range persons {
 		if existingPerson, ok := voterIDToExistingPersonMap[person.VoterID]; ok {
 			person.ID = existingPerson.ID
+			for name, value := range person.Fields {
+				fieldDefinition := fieldDefinitionByNameMap[name]
+				if fieldDefinition == nil {
+					return output, fmt.Errorf("unknown field: %q", name)
+				}
+
+				// This is a CSV import, and we're updating an existing person, so if the field is blank, then ignore it.
+				if value == "" {
+					continue
+				}
+
+				err = fieldDefinition.Validate(value)
+				if err != nil {
+					return output, fmt.Errorf("invalid value for field %s: %w", name, err)
+				}
+			}
+
 			updatePersons = append(updatePersons, person)
 		} else {
+			for name, value := range person.Fields {
+				fieldDefinition := fieldDefinitionByNameMap[name]
+				if fieldDefinition == nil {
+					return output, fmt.Errorf("unknown field: %q", name)
+				}
+
+				err = fieldDefinition.Validate(value)
+				if err != nil {
+					return output, fmt.Errorf("invalid value for field %s: %w", name, err)
+				}
+			}
+
 			newPersons = append(newPersons, person)
 		}
 	}
+	slog.InfoContext(ctx, fmt.Sprintf("New persons: (%d)", len(newPersons)))
+	slog.InfoContext(ctx, fmt.Sprintf("Update persons: (%d)", len(updatePersons)))
 
 	err = meta.DB.Transaction(func(tx *gorm.DB) error {
-		err := tx.Session(&gorm.Session{NewDB: true}).
-			CreateInBatches(&newPersons, 2000).
-			Error
-		if err != nil {
-			return err
-		}
-
-		var fields []*schema.PersonField
-		for _, person := range newPersons {
-			for name, value := range person.Fields {
-				personFieldDefinition := fieldDefinitionByNameMap[name]
-				if personFieldDefinition == nil {
-					continue
-				}
-				field := &schema.PersonField{
-					PersonID:                person.ID,
-					PersonFieldDefinitionID: personFieldDefinition.ID,
-					Value:                   value,
-				}
-				fields = append(fields, field)
+		if len(newPersons) > 0 {
+			err := tx.Session(&gorm.Session{NewDB: true}).
+				CreateInBatches(&newPersons, 2000).
+				Error
+			if err != nil {
+				return err
 			}
-		}
-		err = tx.Session(&gorm.Session{NewDB: true}).
-			CreateInBatches(&fields, 2000).
-			Error
-		if err != nil {
-			return err
+
+			var fields []*schema.PersonField
+			for _, person := range newPersons {
+				for name, value := range person.Fields {
+					personFieldDefinition := fieldDefinitionByNameMap[name]
+					if personFieldDefinition == nil {
+						continue
+					}
+					field := &schema.PersonField{
+						PersonID:                person.ID,
+						PersonFieldDefinitionID: personFieldDefinition.ID,
+						Value:                   value,
+					}
+					fields = append(fields, field)
+				}
+			}
+			err = tx.Session(&gorm.Session{NewDB: true}).
+				CreateInBatches(&fields, 2000).
+				Error
+			if err != nil {
+				return err
+			}
 		}
 
 		for _, updatePerson := range updatePersons {
@@ -352,6 +379,9 @@ func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrgan
 				}
 			}
 
+			slog.InfoContext(ctx, fmt.Sprintf("Person %d: (%d) %+v", person.ID, len(person.Fields), person.Fields))
+			slog.InfoContext(ctx, fmt.Sprintf("Update person %d: (%d) %+v", person.ID, len(updatePerson.Fields), updatePerson.Fields))
+
 			// Do not update fields that are blank.
 			//
 			// Basically, we're accepting spreadsheet input, so if a field is blank, then ignore it.
@@ -361,6 +391,8 @@ func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrgan
 					updateFields[field] = &value
 				}
 			}
+			slog.InfoContext(ctx, fmt.Sprintf("Update fields for person %d: (%d) %+v", person.ID, len(updateFields), updateFields))
+
 			personID := person.ID
 
 			for field, value := range updateFields {
@@ -447,12 +479,6 @@ func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrgan
 					return fmt.Errorf("could not create audit: %w", err)
 				}
 			}
-		}
-		err = tx.Session(&gorm.Session{NewDB: true}).
-			CreateInBatches(&fields, 2000).
-			Error
-		if err != nil {
-			return err
 		}
 
 		return nil
