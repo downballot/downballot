@@ -1,6 +1,7 @@
 package sqltype
 
 import (
+	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
@@ -8,6 +9,9 @@ import (
 
 // StringArray is a custom type for JSON arrays of strings
 type StringArray []string
+
+var _ driver.Valuer = (*StringArray)(nil)
+var _ sql.Scanner = (*StringArray)(nil)
 
 // Value implements driver.Valuer: converts Go slice to JSON for the DB
 func (a StringArray) Value() (driver.Value, error) {

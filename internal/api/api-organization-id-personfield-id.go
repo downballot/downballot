@@ -34,7 +34,7 @@ func (a *API) GetOrganizationIDPersonFieldID(ctx context.Context, meta GetOrgani
 	output.Data.PersonField = &downballotapi.PersonField{
 		ID:            fmt.Sprintf("%d", meta.PersonField.ID),
 		Name:          meta.PersonField.Name,
-		Type:          meta.PersonField.Type,
+		Type:          string(meta.PersonField.Type),
 		AllowEmpty:    meta.PersonField.AllowEmpty,
 		AllowedValues: meta.PersonField.AllowedValues,
 		AllowedRegex:  meta.PersonField.AllowedRegex,
@@ -96,7 +96,7 @@ func (a *API) PostOrganizationIDPersonFieldID(ctx context.Context, meta PatchOrg
 		output.Data.PersonField = downballotapi.PersonField{
 			ID:            fmt.Sprintf("%d", personField.ID),
 			Name:          personField.Name,
-			Type:          personField.Type,
+			Type:          string(personField.Type),
 			AllowEmpty:    personField.AllowEmpty,
 			AllowedValues: personField.AllowedValues,
 			AllowedRegex:  personField.AllowedRegex,

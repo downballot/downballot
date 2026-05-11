@@ -7,6 +7,7 @@ import (
 
 	"github.com/downballot/downballot/downballotapi"
 	"github.com/downballot/downballot/internal/applicationtest"
+	"github.com/downballot/downballot/internal/schema"
 	"github.com/downballot/downballot/internal/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -221,34 +222,34 @@ func TestCampaign(t *testing.T) {
 			"voting_history",
 		}
 		for _, field := range fields {
-			fieldType := "string"
+			fieldType := schema.PersonFieldDefinitionTypeString
 			allowEmpty := true
 			allowedValues := []string{}
 			allowedRegex := ""
 			switch field {
 			case "birthday_year":
-				fieldType = "integer"
+				fieldType = schema.PersonFieldDefinitionTypeInteger
 			case "candidate.connected":
-				fieldType = "boolean"
+				fieldType = schema.PersonFieldDefinitionTypeBoolean
 				allowEmpty = false
 			case "candidate.date_called":
-				fieldType = "date"
+				fieldType = schema.PersonFieldDefinitionTypeDate
 				allowEmpty = false
 			case "candidate.date_texted":
-				fieldType = "date"
+				fieldType = schema.PersonFieldDefinitionTypeDate
 				allowEmpty = false
 			case "candidate.do_not_contact":
-				fieldType = "boolean"
+				fieldType = schema.PersonFieldDefinitionTypeBoolean
 				allowEmpty = false
 			case "candidate.donated":
-				fieldType = "boolean"
+				fieldType = schema.PersonFieldDefinitionTypeBoolean
 			case "candidate.notes":
-				fieldType = "string"
+				fieldType = schema.PersonFieldDefinitionTypeString
 			case "candidate.support":
-				fieldType = "enum"
+				fieldType = schema.PersonFieldDefinitionTypeEnum
 				allowedValues = []string{"-2", "-1", "0", "+1", "+2"}
 			case "coordinates":
-				fieldType = "coordinates"
+				fieldType = schema.PersonFieldDefinitionTypeCoordinates
 			case "district_representative":
 				allowEmpty = false
 			case "district_school":
@@ -260,11 +261,11 @@ func TestCampaign(t *testing.T) {
 			case "residential_address":
 				allowEmpty = false
 			case "voting_history":
-				fieldType = "set"
+				fieldType = schema.PersonFieldDefinitionTypeSet
 			}
 			err := adminClient.Do(ctx, http.MethodPost, "/api/v1/organization/"+organizationId+"/person-field", downballotapi.CreatePersonFieldRequest{
 				Name:          field,
-				Type:          fieldType,
+				Type:          string(fieldType),
 				AllowEmpty:    allowEmpty,
 				AllowedValues: allowedValues,
 				AllowedRegex:  allowedRegex,

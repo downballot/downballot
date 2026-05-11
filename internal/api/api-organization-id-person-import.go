@@ -245,6 +245,17 @@ func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrgan
 			fields[ColumnVotingHistory] = finalValue
 		}
 
+		for name, value := range fields {
+			fieldDefinition := fieldDefinitionByNameMap[name]
+			if fieldDefinition == nil {
+				return output, fmt.Errorf("unknown field: %q", name)
+			}
+			err = fieldDefinition.Validate(value)
+			if err != nil {
+				return output, fmt.Errorf("invalid value for field %s: %w", name, err)
+			}
+		}
+
 		person := &schema.Person{
 			OrganizationID: meta.Organization.ID,
 		}

@@ -38,7 +38,7 @@ func (a *API) GetOrganizationIDPersonField(ctx context.Context, meta GetOrganiza
 		u := &downballotapi.PersonField{
 			ID:            fmt.Sprintf("%d", personField.ID),
 			Name:          personField.Name,
-			Type:          personField.Type,
+			Type:          string(personField.Type),
 			AllowEmpty:    personField.AllowEmpty,
 			AllowedValues: personField.AllowedValues,
 			AllowedRegex:  personField.AllowedRegex,
@@ -64,14 +64,14 @@ func (a *API) PostOrganizationIDPersonField(ctx context.Context, meta PostOrgani
 		return output, restfulwrapper.NewAPIBodyError(fmt.Errorf("missing name"))
 	}
 
-	switch meta.Body.Type {
-	case "boolean":
-	case "coordinates":
-	case "date":
-	case "enum":
-	case "integer":
-	case "set":
-	case "string":
+	switch schema.PersonFieldDefinitionType(meta.Body.Type) {
+	case schema.PersonFieldDefinitionTypeBoolean:
+	case schema.PersonFieldDefinitionTypeCoordinates:
+	case schema.PersonFieldDefinitionTypeDate:
+	case schema.PersonFieldDefinitionTypeEnum:
+	case schema.PersonFieldDefinitionTypeInteger:
+	case schema.PersonFieldDefinitionTypeSet:
+	case schema.PersonFieldDefinitionTypeString:
 	default:
 		return output, restfulwrapper.NewAPIBodyError(fmt.Errorf("unknown type: %q", meta.Body.Type))
 	}
@@ -79,7 +79,7 @@ func (a *API) PostOrganizationIDPersonField(ctx context.Context, meta PostOrgani
 	personField := schema.PersonFieldDefinition{
 		OrganizationID: meta.Organization.ID,
 		Name:           meta.Body.Name,
-		Type:           meta.Body.Type,
+		Type:           schema.PersonFieldDefinitionType(meta.Body.Type),
 		AllowEmpty:     meta.Body.AllowEmpty,
 		AllowedValues:  meta.Body.AllowedValues,
 		AllowedRegex:   meta.Body.AllowedRegex,
@@ -98,7 +98,7 @@ func (a *API) PostOrganizationIDPersonField(ctx context.Context, meta PostOrgani
 		output.Data.PersonField = downballotapi.PersonField{
 			ID:            fmt.Sprintf("%d", personField.ID),
 			Name:          personField.Name,
-			Type:          personField.Type,
+			Type:          string(personField.Type),
 			AllowEmpty:    personField.AllowEmpty,
 			AllowedValues: personField.AllowedValues,
 			AllowedRegex:  personField.AllowedRegex,
