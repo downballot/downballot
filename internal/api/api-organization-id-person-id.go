@@ -245,14 +245,35 @@ func (a *API) GetOrganizationIDPersonIDAudit(ctx context.Context, meta GetOrgani
 		return output, fmt.Errorf("could not find audits: %w", err)
 	}
 
+	fieldDefinitionByNameMap := map[uint64]*schema.PersonFieldDefinition{}
+	{
+		var fieldDefinitions []*schema.PersonFieldDefinition
+		err = meta.DB.Session(&gorm.Session{}).
+			Where("organization_id = ?", meta.OrganizationID).
+			Find(&fieldDefinitions).
+			Error
+		if err != nil {
+			return output, fmt.Errorf("could not find field definitions: %w", err)
+		}
+		for _, fieldDefinition := range fieldDefinitions {
+			fieldDefinitionByNameMap[fieldDefinition.ID] = fieldDefinition
+		}
+	}
+
 	output.Message = "OK"
 	output.Success = true
 	output.Data.Audits = []*downballotapi.PersonAudit{}
 	for _, audit := range audits {
+		fieldDefinition := fieldDefinitionByNameMap[audit.PersonFieldDefinitionID]
+		if fieldDefinition == nil {
+			return output, fmt.Errorf("unknown field definition: %d", audit.PersonFieldDefinitionID)
+		}
+
 		output.Data.Audits = append(output.Data.Audits, &downballotapi.PersonAudit{
 			ID:        fmt.Sprintf("%d", audit.ID),
-			VoterID:   audit.Person.VoterID,
+			VoterID:   meta.VoterID,
 			Timestamp: resttype.DateTime(audit.Timestamp),
+			Field:     fieldDefinitionByNameMap[audit.PersonFieldDefinitionID].Name,
 			OldValue:  audit.OldValue,
 			NewValue:  audit.NewValue,
 		})

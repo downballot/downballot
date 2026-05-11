@@ -39,6 +39,7 @@ type PersonAudit struct {
 	ID        string            `json:"id"`
 	VoterID   string            `json:"voter_id"`
 	Timestamp resttype.DateTime `json:"timestamp"`
+	Field     string            `json:"field"`
 	OldValue  *string           `json:"old_value"`
 	NewValue  *string           `json:"new_value"`
 }
