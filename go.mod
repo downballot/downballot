@@ -10,6 +10,7 @@ require (
 	github.com/emicklei/go-restful-openapi/v2 v2.5.1
 	github.com/emicklei/go-restful/v3 v3.13.0
 	github.com/go-openapi/spec v0.20.3
+	github.com/joho/godotenv v1.5.1
 	github.com/lmittmann/tint v1.1.3
 	github.com/mattn/go-isatty v0.0.22
 	github.com/stretchr/testify v1.11.1

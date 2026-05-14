@@ -20,12 +20,15 @@ import (
 	"github.com/downballot/downballot/internal/database"
 	"github.com/downballot/downballot/internal/httpextra"
 	"github.com/downballot/downballot/internal/migrator"
+	"github.com/joho/godotenv"
 	"github.com/lmittmann/tint"
 	"github.com/mattn/go-isatty"
 )
 
 func main() {
 	ctx := context.Background()
+
+	godotenv.Load()
 
 	var err error
 
