@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/tekkamanendless/httperror"
 	"github.com/tekkamanendless/restapiclient"
 )
 
@@ -16,6 +17,22 @@ type Client struct {
 
 // New returns a new Client.
 func New(path string, options ...restapiclient.Option) *Client {
+	options = append(options, restapiclient.OptionErrorHandler(func(response *http.Response) error {
+		statusError := httperror.ErrorFromStatus(response.StatusCode)
+		finalError := statusError
+		{
+			var envelope RawEnvelope
+			err := json.NewDecoder(response.Body).Decode(&envelope)
+			if err != nil {
+				// Oh well.
+			} else {
+				if envelope.Message != "" {
+					finalError = fmt.Errorf("%w: %s", statusError, envelope.Message)
+				}
+			}
+		}
+		return finalError
+	}))
 	return &Client{
 		client: restapiclient.New(path, options...),
 	}
