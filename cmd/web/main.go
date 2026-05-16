@@ -28,7 +28,7 @@ import (
 func main() {
 	ctx := context.Background()
 
-	godotenv.Load()
+	godotenv.Load(".env")
 
 	var err error
 

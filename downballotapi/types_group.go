@@ -27,3 +27,13 @@ type Group struct {
 	Name     string `json:"name"`
 	Filter   string `json:"filter"`
 }
+
+// PatchGroupRequest is the request for patching the group.
+type PatchGroupRequest struct {
+	ParentID *string `json:"parent_id"`
+	Name     *string `json:"name"`
+	Filter   *string `json:"filter"`
+}
+
+// PatchGroupResponse is the response from patching the group.
+type PatchGroupResponse Group
