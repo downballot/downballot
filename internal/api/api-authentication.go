@@ -12,7 +12,9 @@ import (
 	"github.com/downballot/downballot/internal/api/downballotwrapper"
 	"github.com/downballot/downballot/internal/apitoken"
 	"github.com/downballot/downballot/internal/durationparser"
+	"github.com/downballot/downballot/internal/schema"
 	"github.com/threatmate/restfulwrapper"
+	"gorm.io/gorm"
 )
 
 // Login does not require authentication, since it is what creates authentication.
@@ -20,6 +22,7 @@ import (
 type PostAuthenticationLoginMetadata struct {
 	restfulwrapper.HTTPMethodPOST
 	downballotwrapper.MayHaveAuthenticatedUser
+	downballotwrapper.UseDatabase
 	_        string                     `api:"httppath:/authentication/login"`
 	_        string                     `api:"doc" description:"Log in."`
 	_        string                     `api:"notes" description:"This attempts to log in the user with a username and password.  Upon completion, this will provide the user with an API token that can be used in subsequent calls."`
@@ -53,7 +56,24 @@ func (a *API) PostAuthenticationLogin(ctx context.Context, meta PostAuthenticati
 
 		slog.InfoContext(ctx, fmt.Sprintf("This request is already authenticated as: %s", claims.Subject))
 	} else if meta.Body.Username != "" && meta.Body.Password != "" {
-		// TODO: SIGN THE USER IN.
+		var users []schema.User
+		err = meta.DB.Session(&gorm.Session{}).
+			Where("username = ?", meta.Body.Username).
+			Find(&users).
+			Error
+		if err != nil {
+			return output, err
+		}
+
+		if len(users) == 0 {
+			return output, restfulwrapper.NewAPIResponseError(http.StatusUnauthorized, "Invalid username or password")
+		}
+
+		if len(users) > 1 {
+			return output, restfulwrapper.NewAPIResponseError(http.StatusInternalServerError, "Multiple users found with the same username")
+		}
+
+		// TODO: VERIFY THE PASSWORD.
 
 		claims.Subject = meta.Body.Username
 		claims.Email = meta.Body.Username
