@@ -212,6 +212,12 @@ func filterPersons(ctx context.Context, db *gorm.DB, userID uint64, organization
 				groupQuery = groupQuery.Where(fieldTableName+".value = ?", typedClause.Value)
 			case filter.OperationNotEquals:
 				groupQuery = groupQuery.Where(fieldTableName+".value IS NULL OR "+fieldTableName+".value != ?", typedClause.Value)
+			case filter.OperationIs:
+				if typedClause.Value == "null" {
+					groupQuery = groupQuery.Where(fieldTableName + ".value IS NULL")
+				} else {
+					return fmt.Errorf("invalid value for is operation: %s", typedClause.Value)
+				}
 			case filter.OperationGreaterThan:
 				switch personFieldDefinition.Type {
 				case "integer":
