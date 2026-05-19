@@ -265,7 +265,7 @@ func TestCampaign(t *testing.T) {
 			}
 			err := adminClient.Do(ctx, http.MethodPost, "/api/v1/organization/"+organizationId+"/person-field", downballotapi.CreatePersonFieldRequest{
 				Name:          field,
-				Type:          string(fieldType),
+				Type:          downballotapi.PersonFieldDefinitionType(fieldType),
 				AllowEmpty:    allowEmpty,
 				AllowedValues: allowedValues,
 				AllowedRegex:  allowedRegex,
