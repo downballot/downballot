@@ -4,6 +4,16 @@ import "github.com/downballot/downballot/internal/schema"
 
 type PersonFieldDefinitionType schema.PersonFieldDefinitionType
 
+const (
+	PersonFieldDefinitionTypeBoolean     = PersonFieldDefinitionType(schema.PersonFieldDefinitionTypeBoolean)
+	PersonFieldDefinitionTypeCoordinates = PersonFieldDefinitionType(schema.PersonFieldDefinitionTypeCoordinates)
+	PersonFieldDefinitionTypeDate        = PersonFieldDefinitionType(schema.PersonFieldDefinitionTypeDate)
+	PersonFieldDefinitionTypeEnum        = PersonFieldDefinitionType(schema.PersonFieldDefinitionTypeEnum)
+	PersonFieldDefinitionTypeInteger     = PersonFieldDefinitionType(schema.PersonFieldDefinitionTypeInteger)
+	PersonFieldDefinitionTypeSet         = PersonFieldDefinitionType(schema.PersonFieldDefinitionTypeSet)
+	PersonFieldDefinitionTypeString      = PersonFieldDefinitionType(schema.PersonFieldDefinitionTypeString)
+)
+
 // CreatePersonFieldRequest is the request to create a person field.
 type CreatePersonFieldRequest struct {
 	Name          string                    `json:"name"`
