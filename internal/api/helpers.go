@@ -25,6 +25,7 @@ func getGroupsForUser(db *gorm.DB, userID any, organizationID any, filters map[s
 		}
 	}
 	err := query.
+		Order("name").
 		Order("id").
 		Find(&groups).
 		Error
