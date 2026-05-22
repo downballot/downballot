@@ -3,6 +3,8 @@ package api
 import (
 	"context"
 	"fmt"
+	"log/slog"
+	"strings"
 
 	"github.com/downballot/downballot/downballotapi"
 	"github.com/downballot/downballot/internal/api/downballotwrapper"
@@ -30,7 +32,7 @@ func (a *API) PostOrganizationIDGroup(ctx context.Context, meta PostOrganization
 		return output, restfulwrapper.NewAPIBodyError(fmt.Errorf("missing parent_id"))
 	}
 
-	groups, err := getGroupsForUser(meta.DB, meta.CurrentUser.ID, meta.OrganizationID, nil)
+	groups, err := getGroupsForUser(meta.DB, meta.CurrentUser.ID, meta.OrganizationID)
 	if err != nil {
 		return output, err
 	}
@@ -109,16 +111,47 @@ type GetOrganizationIDGroupMetadata struct {
 }
 
 func (a *API) GetOrganizationIDGroup(ctx context.Context, meta GetOrganizationIDGroupMetadata) (output downballotapi.Envelope[downballotapi.ListGroupsResponse], err error) {
-	filters := map[string]any{}
-	if meta.Name != nil {
-		filters["name"] = *meta.Name
-	}
-	if meta.ParentID != nil {
-		filters["parent_id"] = *meta.ParentID
-	}
-	groups, err := getGroupsForUser(meta.DB, meta.CurrentUser.ID, meta.OrganizationID, filters)
-	if err != nil {
-		return output, err
+	var groups []*schema.Group
+	{
+		groupHierarchies, err := getGroupHierarchiesForUser(meta.DB, meta.CurrentUser.ID, meta.OrganizationID)
+		if err != nil {
+			return output, err
+		}
+
+		for _, hierarchy := range groupHierarchies {
+			slog.InfoContext(ctx, fmt.Sprintf("Hierarchy: %+v", hierarchy))
+			for _, group := range hierarchy {
+				slog.InfoContext(ctx, fmt.Sprintf("Group: %+v", group))
+			}
+		}
+
+		var groupsToConsider []*schema.Group
+		if meta.ParentID != nil {
+			if *meta.ParentID == "null" || *meta.ParentID == "0" {
+				for _, hierarchy := range groupHierarchies {
+					groupsToConsider = append(groupsToConsider, hierarchy[0])
+				}
+			} else {
+				for _, hierarchy := range groupHierarchies {
+					for _, group := range hierarchy {
+						if group.ParentID != nil && fmt.Sprintf("%d", *group.ParentID) == *meta.ParentID {
+							groupsToConsider = append(groupsToConsider, group)
+						}
+					}
+				}
+			}
+		} else {
+			for _, hierarchy := range groupHierarchies {
+				groupsToConsider = append(groupsToConsider, hierarchy...)
+			}
+		}
+
+		for _, group := range groupsToConsider {
+			if meta.Name != nil && !strings.EqualFold(group.Name, *meta.Name) {
+				continue
+			}
+			groups = append(groups, group)
+		}
 	}
 
 	output.Message = "OK"

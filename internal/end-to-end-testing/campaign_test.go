@@ -142,10 +142,11 @@ func TestCampaign(t *testing.T) {
 
 	t.Log("Get the root group ID.")
 	{
-		var output downballotapi.GetGroupResponse
-		err := adminClient.Do(ctx, http.MethodGet, "/api/v1/organization/"+organizationId+"/group/root", nil, &output)
+		var output downballotapi.ListGroupsResponse
+		err := adminClient.Do(ctx, http.MethodGet, "/api/v1/organization/"+organizationId+"/group?parent_id=null", nil, &output)
 		require.NoError(t, err)
-		rootGroupId = output.Group.ID
+		require.Len(t, output.Groups, 1)
+		rootGroupId = output.Groups[0].ID
 		t.Logf("Root group ID: %s", rootGroupId)
 	}
 

@@ -42,32 +42,6 @@ func (a *API) GetOrganizationIDGroupID(ctx context.Context, meta GetOrganization
 	return output, nil
 }
 
-type GetOrganizationIDGroupRootMetadata struct {
-	restfulwrapper.HTTPMethodGET
-	downballotwrapper.RequireAuthenticatedUser
-	downballotwrapper.UseDatabase
-	hasOrganization
-	Group schema.Group `api:"database.query:where:parent_id IS NULL AND organization_id = ?, OrganizationID"`
-	_     string       `api:"httppath:/organization/{organization_id}/group/root"`
-	_     string       `api:"doc" description:"Get the group."`
-	_     string       `api:"notes" description:"This gets the group."`
-}
-
-func (a *API) GetOrganizationIDGroupRoot(ctx context.Context, meta GetOrganizationIDGroupRootMetadata) (output downballotapi.Envelope[downballotapi.GetGroupResponse], err error) {
-	o := &downballotapi.Group{
-		ID:     fmt.Sprintf("%d", meta.Group.ID),
-		Name:   meta.Group.Name,
-		Filter: meta.Group.Filter,
-	}
-	if meta.Group.ParentID != nil {
-		o.ParentID = fmt.Sprintf("%d", *meta.Group.ParentID)
-	}
-	output.Message = "OK"
-	output.Success = true
-	output.Data.Group = o
-	return output, nil
-}
-
 type PatchOrganizationIDGroupIDMetadata struct {
 	restfulwrapper.HTTPMethodPATCH
 	downballotwrapper.RequireAuthenticatedUser
@@ -93,7 +67,7 @@ func (a *API) PatchOrganizationIDGroupID(ctx context.Context, meta PatchOrganiza
 			return output, restfulwrapper.NewAPIBodyError(fmt.Errorf("group cannot be its own parent"))
 		}
 
-		groups, err := getGroupsForUser(meta.DB, meta.CurrentUser.ID, meta.OrganizationID, nil)
+		groups, err := getGroupsForUser(meta.DB, meta.CurrentUser.ID, meta.OrganizationID)
 		if err != nil {
 			return output, err
 		}

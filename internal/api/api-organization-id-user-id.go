@@ -34,7 +34,7 @@ func (a *API) PostOrganizationIDUserIDGroup(ctx context.Context, meta PostOrgani
 	}
 	var group *schema.Group
 	{
-		groups, err := getGroupsForUser(meta.DB, meta.CurrentUser.ID, meta.OrganizationID, nil)
+		groups, err := getGroupsForUser(meta.DB, meta.CurrentUser.ID, meta.OrganizationID)
 		if err != nil {
 			return output, err
 		}

@@ -12,18 +12,11 @@ import (
 	"gorm.io/gorm"
 )
 
-func getGroupsForUser(db *gorm.DB, userID any, organizationID any, filters map[string]any) ([]*schema.Group, error) {
+func getGroupsForUser(db *gorm.DB, userID any, organizationID any) ([]*schema.Group, error) {
 	var groups []*schema.Group
 	query := db.Session(&gorm.Session{}).
 		Where("organization_id = ?", organizationID).
 		Where("id IN (SELECT group_id FROM user_group_map WHERE user_id = ?)", userID)
-	for key, value := range filters {
-		if value == nil {
-			query = query.Where(key + " IS NULL")
-		} else {
-			query = query.Where(key+" = ?", value)
-		}
-	}
 	err := query.
 		Order("name").
 		Order("id").
@@ -72,22 +65,53 @@ func getGroupHierarchiesForUser(db *gorm.DB, userID any, organizationID any) ([]
 		userGroups = append(userGroups, groups...)
 	}
 
-	hierarchies := [][]*schema.Group{}
-	for _, bottomLevelGroup := range userGroups {
-		hierarchy := []*schema.Group{}
-
-		group := bottomLevelGroup
-		for group != nil {
-			hierarchy = append([]*schema.Group{group}, hierarchy...)
-
-			if group.ParentID == nil {
-				group = nil
-			} else {
-				group = groupsByID[*group.ParentID]
+	userRoots := []*schema.Group{}
+	{
+		userGroupMap := map[uint64]bool{}
+		for _, userGroup := range userGroups {
+			userGroupMap[userGroup.ID] = true
+		}
+		for _, userGroup := range userGroups {
+			if userGroup.ParentID == nil {
+				userRoots = append(userRoots, userGroup)
+				continue
+			}
+			if userGroupMap[*userGroup.ParentID] {
+				continue
 			}
 		}
+	}
+
+	hierarchies := [][]*schema.Group{}
+	for _, userRoot := range userRoots {
+		hierarchy := []*schema.Group{}
+
+		allChildrenIDs := []uint64{userRoot.ID}
+		processedIDMap := map[uint64]bool{}
+		for len(allChildrenIDs) > 0 {
+			childID := allChildrenIDs[0]
+			allChildrenIDs = allChildrenIDs[1:]
+			if processedIDMap[childID] {
+				continue
+			}
+			processedIDMap[childID] = true
+
+			for _, childGroup := range groupChildrenMap[childID] {
+				allChildrenIDs = append(allChildrenIDs, childGroup.ID)
+			}
+
+			child := groupsByID[childID]
+			hierarchy = append(hierarchy, child)
+		}
+
 		hierarchies = append(hierarchies, hierarchy)
 	}
+
+	// Artificially remove the parent ID from every root group.
+	for i := range hierarchies {
+		hierarchies[i][0].ParentID = nil
+	}
+
 	return hierarchies, nil
 }
 
