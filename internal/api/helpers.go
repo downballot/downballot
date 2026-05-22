@@ -1,9 +1,11 @@
 package api
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 
 	"github.com/downballot/downballot/downballotapi"
@@ -12,22 +14,77 @@ import (
 	"gorm.io/gorm"
 )
 
+// getGroupsForUser returns the list of groups that the user can see.
 func getGroupsForUser(db *gorm.DB, userID any, organizationID any) ([]*schema.Group, error) {
-	var groups []*schema.Group
-	query := db.Session(&gorm.Session{}).
+	var mappedGroupIDs []uint64
+	err := db.Session(&gorm.Session{}).
+		Model(&schema.Group{}).
 		Where("organization_id = ?", organizationID).
-		Where("id IN (SELECT group_id FROM user_group_map WHERE user_id = ?)", userID)
-	err := query.
-		Order("name").
-		Order("id").
+		Where("id IN (SELECT group_id FROM user_group_map WHERE user_id = ?)", userID).
+		Pluck("id", &mappedGroupIDs).
+		Error
+	if err != nil {
+		return nil, err
+	}
+
+	var groups []*schema.Group
+	err = db.Session(&gorm.Session{}).
+		Where("organization_id = ?", organizationID).
 		Find(&groups).
 		Error
 	if err != nil {
 		return nil, err
 	}
+
+	groupIDToParentIDMap := map[uint64]uint64{}
+	for _, group := range groups {
+		if group.ParentID != nil {
+			groupIDToParentIDMap[group.ID] = *group.ParentID
+		}
+	}
+
+	userGroupIDMap := map[uint64]bool{}
+	for _, groupID := range mappedGroupIDs {
+		userGroupIDMap[groupID] = true
+	}
+	for _, group := range groups {
+		groupIsUserGroup := false
+		currentGroupID := group.ID
+		for currentGroupID != 0 {
+			currentGroupID = groupIDToParentIDMap[currentGroupID]
+			if currentGroupID == 0 {
+				break
+			}
+			if userGroupIDMap[currentGroupID] {
+				groupIsUserGroup = true
+				break
+			}
+		}
+
+		if !groupIsUserGroup {
+			continue
+		}
+
+		groups = append(groups, group)
+	}
+
+	slices.SortFunc(groups, func(a, b *schema.Group) int {
+		diff := cmp.Compare(a.Name, b.Name)
+		if diff != 0 {
+			return diff
+		}
+		return cmp.Compare(a.ID, b.ID)
+	})
+
 	return groups, nil
 }
 
+// getGroupHierarchiesForUser returns the hierarchies of groups for a user.
+//
+// One hierarchy will be returned for each bottom-level group that the can see.
+//
+// Each hierarchy goes from the organization's root group to the bottom-level group, and thus
+// includes all of the information needed to properly build the filter for the group.
 func getGroupHierarchiesForUser(db *gorm.DB, userID any, organizationID any) ([][]*schema.Group, error) {
 	groupChildrenMap := map[uint64][]*schema.Group{}
 	groupsByID := map[uint64]*schema.Group{}
@@ -65,51 +122,22 @@ func getGroupHierarchiesForUser(db *gorm.DB, userID any, organizationID any) ([]
 		userGroups = append(userGroups, groups...)
 	}
 
-	userRoots := []*schema.Group{}
-	{
-		userGroupMap := map[uint64]bool{}
-		for _, userGroup := range userGroups {
-			userGroupMap[userGroup.ID] = true
-		}
-		for _, userGroup := range userGroups {
-			if userGroup.ParentID == nil {
-				userRoots = append(userRoots, userGroup)
-				continue
-			}
-			if userGroupMap[*userGroup.ParentID] {
-				continue
-			}
-		}
-	}
-
 	hierarchies := [][]*schema.Group{}
-	for _, userRoot := range userRoots {
+	for _, bottomLevelGroup := range userGroups {
 		hierarchy := []*schema.Group{}
 
-		allChildrenIDs := []uint64{userRoot.ID}
-		processedIDMap := map[uint64]bool{}
-		for len(allChildrenIDs) > 0 {
-			childID := allChildrenIDs[0]
-			allChildrenIDs = allChildrenIDs[1:]
-			if processedIDMap[childID] {
-				continue
-			}
-			processedIDMap[childID] = true
+		group := bottomLevelGroup
+		for group != nil {
+			hierarchy = append([]*schema.Group{group}, hierarchy...)
 
-			for _, childGroup := range groupChildrenMap[childID] {
-				allChildrenIDs = append(allChildrenIDs, childGroup.ID)
+			if group.ParentID == nil {
+				group = nil
+			} else {
+				group = groupsByID[*group.ParentID]
 			}
-
-			child := groupsByID[childID]
-			hierarchy = append(hierarchy, child)
 		}
 
 		hierarchies = append(hierarchies, hierarchy)
-	}
-
-	// Artificially remove the parent ID from every root group.
-	for i := range hierarchies {
-		hierarchies[i][0].ParentID = nil
 	}
 
 	return hierarchies, nil

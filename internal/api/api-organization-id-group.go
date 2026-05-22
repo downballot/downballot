@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"strings"
 
 	"github.com/downballot/downballot/downballotapi"
@@ -78,17 +77,6 @@ func (a *API) PostOrganizationIDGroup(ctx context.Context, meta PostOrganization
 		output.Data.Name = group.Name
 		output.Data.Filter = meta.Body.Filter
 
-		userGroupMapping := schema.UserGroupMap{
-			UserID:  owner.ID,
-			GroupID: group.ID,
-		}
-		err = tx.Session(&gorm.Session{NewDB: true}).
-			Create(&userGroupMapping).
-			Error
-		if err != nil {
-			return err
-		}
-
 		return nil
 	})
 	if err != nil {
@@ -118,31 +106,44 @@ func (a *API) GetOrganizationIDGroup(ctx context.Context, meta GetOrganizationID
 			return output, err
 		}
 
-		for _, hierarchy := range groupHierarchies {
-			slog.InfoContext(ctx, fmt.Sprintf("Hierarchy: %+v", hierarchy))
-			for _, group := range hierarchy {
-				slog.InfoContext(ctx, fmt.Sprintf("Group: %+v", group))
+		userRootGroupHierarchies := [][]*schema.Group{}
+		{
+			userGroupMap := map[uint64]bool{}
+			for _, userGroupHierarchy := range groupHierarchies {
+				userGroup := userGroupHierarchy[len(userGroupHierarchy)-1]
+				userGroupMap[userGroup.ID] = true
+			}
+			for _, userGroupHierarchy := range groupHierarchies {
+				userGroup := userGroupHierarchy[len(userGroupHierarchy)-1]
+				if userGroup.ParentID == nil {
+					userRootGroupHierarchies = append(userRootGroupHierarchies, userGroupHierarchy)
+					continue
+				}
+				if userGroupMap[*userGroup.ParentID] {
+					continue
+				}
+				userRootGroupHierarchies = append(userRootGroupHierarchies, userGroupHierarchy)
 			}
 		}
 
 		var groupsToConsider []*schema.Group
 		if meta.ParentID != nil {
 			if *meta.ParentID == "null" || *meta.ParentID == "0" {
-				for _, hierarchy := range groupHierarchies {
-					groupsToConsider = append(groupsToConsider, hierarchy[0])
+				for _, hierarchy := range userRootGroupHierarchies {
+					groupsToConsider = append(groupsToConsider, hierarchy[len(hierarchy)-1])
 				}
 			} else {
 				for _, hierarchy := range groupHierarchies {
-					for _, group := range hierarchy {
-						if group.ParentID != nil && fmt.Sprintf("%d", *group.ParentID) == *meta.ParentID {
-							groupsToConsider = append(groupsToConsider, group)
-						}
+					group := hierarchy[len(hierarchy)-1]
+					if group.ParentID != nil && fmt.Sprintf("%d", *group.ParentID) == *meta.ParentID {
+						groupsToConsider = append(groupsToConsider, group)
 					}
 				}
 			}
 		} else {
 			for _, hierarchy := range groupHierarchies {
-				groupsToConsider = append(groupsToConsider, hierarchy...)
+				group := hierarchy[len(hierarchy)-1]
+				groupsToConsider = append(groupsToConsider, group)
 			}
 		}
 
