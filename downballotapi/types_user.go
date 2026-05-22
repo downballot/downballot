@@ -15,6 +15,11 @@ type ListUsersResponse struct {
 	Users []*User `json:"users"`
 }
 
+// GetUserResponse is the response from getting a user.
+type GetUserResponse struct {
+	User *User `json:"user"`
+}
+
 // User is an user.
 type User struct {
 	ID       string `json:"id"`

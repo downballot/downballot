@@ -16,6 +16,57 @@ type hasUser struct {
 	User   schema.User `api:"database.query:where:id = ? AND id IN (SELECT DISTINCT user_id FROM user_organization_map WHERE organization_id IN (SELECT id FROM organization)),UserID"`
 }
 
+type GetOrganizationIDUserIDMetadata struct {
+	restfulwrapper.HTTPMethodGET
+	downballotwrapper.RequireAuthenticatedUser
+	downballotwrapper.UseDatabase
+	hasOrganization
+	hasUser
+	_ string `api:"httppath:/organization/{organization_id}/user/{user_id}"`
+	_ string `api:"doc" description:"Get the user."`
+	_ string `api:"notes" description:"This gets the user."`
+}
+
+func (a *API) GetOrganizationIDUserID(ctx context.Context, meta GetOrganizationIDUserIDMetadata) (output downballotapi.Envelope[downballotapi.GetUserResponse], err error) {
+	output.Message = "OK"
+	output.Success = true
+	output.Data.User = &downballotapi.User{
+		ID:       fmt.Sprintf("%d", meta.User.ID),
+		Name:     meta.User.Name,
+		Username: meta.User.Username,
+	}
+	return output, nil
+}
+
+type DeleteOrganizationIDUserIDMetadata struct {
+	restfulwrapper.HTTPMethodDELETE
+	downballotwrapper.RequireAuthenticatedUser
+	downballotwrapper.UseDatabase
+	hasOrganization
+	hasUser
+	_ string `api:"httppath:/organization/{organization_id}/user/{user_id}"`
+	_ string `api:"doc" description:"Delete the user from the organization."`
+	_ string `api:"notes" description:"This deletes the user from the organization."`
+}
+
+func (a *API) DeleteOrganizationIDUserID(ctx context.Context, meta DeleteOrganizationIDUserIDMetadata) error {
+	err := meta.DB.Transaction(func(tx *gorm.DB) error {
+		err := tx.Session(&gorm.Session{NewDB: true}).
+			Where("user_id = ?", meta.User.ID).
+			Where("organization_id = ?", meta.Organization.ID).
+			Delete(&schema.UserOrganizationMap{}).
+			Error
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 type PostOrganizationIDUserIDGroupMetadata struct {
 	restfulwrapper.HTTPMethodPOST
 	downballotwrapper.RequireAuthenticatedUser
