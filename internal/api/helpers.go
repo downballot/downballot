@@ -27,6 +27,13 @@ func getGroupsForUser(db *gorm.DB, userID any, organizationID any) ([]*schema.Gr
 		return nil, err
 	}
 
+	/*
+		slog.Info("mappedGroupIDs", "mappedGroupIDs", len(mappedGroupIDs))
+		for _, mappedGroupID := range mappedGroupIDs {
+			slog.Info("mappedGroupID", "mappedGroupID", mappedGroupID)
+		}
+			//*/
+
 	var groups []*schema.Group
 	err = db.Session(&gorm.Session{}).
 		Where("organization_id = ?", organizationID).
@@ -47,28 +54,28 @@ func getGroupsForUser(db *gorm.DB, userID any, organizationID any) ([]*schema.Gr
 	for _, groupID := range mappedGroupIDs {
 		userGroupIDMap[groupID] = true
 	}
+
+	var userGroups []*schema.Group
 	for _, group := range groups {
 		groupIsUserGroup := false
 		currentGroupID := group.ID
 		for currentGroupID != 0 {
-			currentGroupID = groupIDToParentIDMap[currentGroupID]
-			if currentGroupID == 0 {
-				break
-			}
 			if userGroupIDMap[currentGroupID] {
 				groupIsUserGroup = true
 				break
 			}
+
+			currentGroupID = groupIDToParentIDMap[currentGroupID]
 		}
 
 		if !groupIsUserGroup {
 			continue
 		}
 
-		groups = append(groups, group)
+		userGroups = append(userGroups, group)
 	}
 
-	slices.SortFunc(groups, func(a, b *schema.Group) int {
+	slices.SortFunc(userGroups, func(a, b *schema.Group) int {
 		diff := cmp.Compare(a.Name, b.Name)
 		if diff != 0 {
 			return diff
@@ -76,7 +83,7 @@ func getGroupsForUser(db *gorm.DB, userID any, organizationID any) ([]*schema.Gr
 		return cmp.Compare(a.ID, b.ID)
 	})
 
-	return groups, nil
+	return userGroups, nil
 }
 
 // getGroupHierarchiesForUser returns the hierarchies of groups for a user.
@@ -111,6 +118,12 @@ func getGroupHierarchiesForUser(db *gorm.DB, userID any, organizationID any) ([]
 	if err != nil {
 		return nil, err
 	}
+
+	//*
+	for _, userGroup := range userGroups {
+		slog.Info("userGroup", "userGroup", userGroup.Name, "id", userGroup.ID)
+	}
+	//*/
 
 	hierarchies := [][]*schema.Group{}
 	for _, bottomLevelGroup := range userGroups {

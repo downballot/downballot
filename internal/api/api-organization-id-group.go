@@ -106,33 +106,21 @@ func (a *API) GetOrganizationIDGroup(ctx context.Context, meta GetOrganizationID
 			return output, err
 		}
 
-		userRootGroupHierarchies := [][]*schema.Group{}
-		{
-			userGroupMap := map[uint64]bool{}
-			for _, userGroupHierarchy := range groupHierarchies {
-				userGroup := userGroupHierarchy[len(userGroupHierarchy)-1]
-				userGroupMap[userGroup.ID] = true
+		/*
+			slog.Info("groupHierarchies", "groupHierarchies", len(groupHierarchies))
+			for _, groupHierarchy := range groupHierarchies {
+				slog.Info("group", "group", groupHierarchy[len(groupHierarchy)-1].Name, "id", groupHierarchy[len(groupHierarchy)-1].ID)
 			}
-			for _, userGroupHierarchy := range groupHierarchies {
-				userGroup := userGroupHierarchy[len(userGroupHierarchy)-1]
-				if userGroup.ParentID == nil {
-					userRootGroupHierarchies = append(userRootGroupHierarchies, userGroupHierarchy)
-					continue
-				}
-				if userGroupMap[*userGroup.ParentID] {
-					continue
-				}
-				userRootGroupHierarchies = append(userRootGroupHierarchies, userGroupHierarchy)
-			}
-		}
+			//*/
+
+		userRootGroupHierarchies := condenseHierarchies(groupHierarchies)
 
 		/*
 			slog.Info("userRootGroupHierarchies", "userRootGroupHierarchies", len(userRootGroupHierarchies))
-			slog.Info("groupHierarchies", "groupHierarchies", len(groupHierarchies))
-			for _, groupHierarchy := range groupHierarchies {
-				slog.Info("group", "group", groupHierarchy[len(groupHierarchy)-1].Name)
+			for _, userRootGroupHierarchy := range userRootGroupHierarchies {
+				slog.Info("group", "group", userRootGroupHierarchy[len(userRootGroupHierarchy)-1].Name, "id", userRootGroupHierarchy[len(userRootGroupHierarchy)-1].ID)
 			}
-		*/
+			//*/
 
 		var groupsToConsider []*schema.Group
 		if meta.ParentID != nil {
