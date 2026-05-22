@@ -126,6 +126,14 @@ func (a *API) GetOrganizationIDGroup(ctx context.Context, meta GetOrganizationID
 			}
 		}
 
+		/*
+			slog.Info("userRootGroupHierarchies", "userRootGroupHierarchies", len(userRootGroupHierarchies))
+			slog.Info("groupHierarchies", "groupHierarchies", len(groupHierarchies))
+			for _, groupHierarchy := range groupHierarchies {
+				slog.Info("group", "group", groupHierarchy[len(groupHierarchy)-1].Name)
+			}
+		*/
+
 		var groupsToConsider []*schema.Group
 		if meta.ParentID != nil {
 			if *meta.ParentID == "null" || *meta.ParentID == "0" {

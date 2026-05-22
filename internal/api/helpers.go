@@ -107,19 +107,9 @@ func getGroupHierarchiesForUser(db *gorm.DB, userID any, organizationID any) ([]
 		}
 	}
 
-	userGroups := []*schema.Group{}
-	{
-		var groups []*schema.Group
-		err := db.Session(&gorm.Session{}).
-			Where("organization_id = ?", organizationID).
-			Where("id IN (SELECT group_id FROM user_group_map WHERE user_id = ?)", userID).
-			Order("id").
-			Find(&groups).
-			Error
-		if err != nil {
-			return nil, err
-		}
-		userGroups = append(userGroups, groups...)
+	userGroups, err := getGroupsForUser(db, userID, organizationID)
+	if err != nil {
+		return nil, err
 	}
 
 	hierarchies := [][]*schema.Group{}
