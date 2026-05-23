@@ -40,7 +40,7 @@ func (a *API) PostAuthenticationEmail(ctx context.Context, meta PostAuthenticati
 
 	var users []*schema.User
 	err = meta.DB.Session(&gorm.Session{}).
-		Where("email = ?", meta.Body.Email).
+		Where("username = ?", meta.Body.Email).
 		Find(&users).
 		Error
 	if err != nil {
