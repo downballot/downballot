@@ -15,6 +15,7 @@ func Migrate(db *gorm.DB) error {
 		schema.User{},
 		schema.UserGroupMap{},
 		schema.UserOrganizationMap{},
+		schema.UserTOTP{},
 		schema.Person{},
 		schema.PersonField{},
 		schema.PersonFieldDefinition{},
