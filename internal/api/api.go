@@ -13,6 +13,7 @@ import (
 	restfulspec "github.com/emicklei/go-restful-openapi/v2"
 	"github.com/emicklei/go-restful/v3"
 	"github.com/go-openapi/spec"
+	"github.com/tekkamanendless/go-mailer"
 	"github.com/tekkamanendless/httperror"
 	"github.com/threatmate/restfulwrapper"
 )
@@ -21,6 +22,7 @@ type API struct {
 	jwtSecret     []byte          // This is the JWT secret, if any.
 	jwtPublicKey  *rsa.PublicKey  // This is the JWT public key, if any.
 	jwtPrivateKey *rsa.PrivateKey // This is the JWT private key, if any.
+	mailer        *mailer.Mailer  // This is the mailer.
 }
 
 // DefaultPageSize is the default page size for paginated things.
@@ -119,6 +121,11 @@ func (i *Instance) Container(ctx context.Context) *restful.Container {
 				middlewareConfig.JWTSecret = []byte(i.Config.JWTSecret)
 			}
 
+			var mailerInstance *mailer.Mailer
+			if i.Config.SendGridAPIKey != "" {
+				mailerInstance = mailer.New(mailer.TypeSendgrid, mailer.WithAPIKey(i.Config.SendGridAPIKey))
+			}
+
 			session := webService.Session().
 				Attributes(middlewareConfig.Attributes()).
 				Do(middlewareConfig.Do())
@@ -126,6 +133,7 @@ func (i *Instance) Container(ctx context.Context) *restful.Container {
 				jwtSecret:     i.jwtSecret,
 				jwtPublicKey:  i.jwtPublicKey,
 				jwtPrivateKey: i.jwtPrivateKey,
+				mailer:        mailerInstance,
 			})
 		}
 

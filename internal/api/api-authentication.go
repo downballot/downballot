@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/mail"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -16,6 +17,7 @@ import (
 	"github.com/downballot/downballot/internal/schema/sqltype"
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
+	"github.com/tekkamanendless/go-mailer"
 	"github.com/threatmate/restfulwrapper"
 	"gorm.io/gorm"
 )
@@ -119,7 +121,22 @@ func (a *API) PostAuthenticationEmail(ctx context.Context, meta PostAuthenticati
 
 		slog.InfoContext(ctx, fmt.Sprintf("One-time password: %s", oneTimePassword))
 
-		// TODO: Send the e-mail.
+		// Send the e-mail.
+		if a.mailer == nil {
+			slog.WarnContext(ctx, "No mailer configured; could not send e-mail.")
+		} else {
+			err = a.mailer.SendMail(ctx, mailer.Message{
+				From: mail.Address{
+					Name:    "Downballot",
+					Address: "noreply@app.downballot.io",
+				},
+				To: mail.Address{
+					Address: meta.Body.Email,
+				},
+				Subject:       "Your Downballot one-time password",
+				BodyPlainText: fmt.Sprintf("Your one-time password is:\n\n%s", oneTimePassword),
+			})
+		}
 	}
 
 	output.Message = "OK"

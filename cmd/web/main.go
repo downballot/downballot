@@ -192,10 +192,11 @@ func main() {
 	apiInstance := api.New()
 	apiInstance.App = app
 	apiInstance.Config = api.Config{
-		JWTPrivateKey: config.JWTPrivateKey,
-		JWTPublicKey:  config.JWTPublicKey,
-		JWTSecret:     config.JWTSecret,
-		MasterToken:   config.MasterToken,
+		JWTPrivateKey:  config.JWTPrivateKey,
+		JWTPublicKey:   config.JWTPublicKey,
+		JWTSecret:      config.JWTSecret,
+		MasterToken:    config.MasterToken,
+		SendGridAPIKey: config.SendGridAPIKey,
 	}
 
 	apiContainer := apiInstance.Container(ctx)
