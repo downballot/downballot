@@ -103,7 +103,7 @@ func (a *API) PostAuthenticationEmail(ctx context.Context, meta PostAuthenticati
 			}
 		}
 
-		var password string
+		var oneTimePassword string
 		{
 			code, err := totp.GenerateCodeCustom(string(userTOTP.Secret), time.Now(), totp.ValidateOpts{
 				Period:    uint(TOTPPeriod),
@@ -114,10 +114,10 @@ func (a *API) PostAuthenticationEmail(ctx context.Context, meta PostAuthenticati
 			if err != nil {
 				return output, fmt.Errorf("could not generate TOTP code: %w", err)
 			}
-			password = code
+			oneTimePassword = code
 		}
 
-		slog.InfoContext(ctx, fmt.Sprintf("One-time password: %s", password))
+		slog.InfoContext(ctx, fmt.Sprintf("One-time password: %s", oneTimePassword))
 
 		// TODO: Send the e-mail.
 	}
@@ -186,7 +186,42 @@ func (a *API) PostAuthenticationLogin(ctx context.Context, meta PostAuthenticati
 
 		user := users[0]
 
-		// TODO: VERIFY THE PASSWORD.
+		var userTOTP *schema.UserTOTP
+		{
+			var userTOTPs []*schema.UserTOTP
+			err = meta.DB.Session(&gorm.Session{}).
+				Where("user_id = ?", user.ID).
+				Find(&userTOTPs).
+				Error
+			if err != nil {
+				return output, err
+			}
+			if len(userTOTPs) == 0 {
+				return output, restfulwrapper.NewAPIResponseError(http.StatusUnauthorized, "User does not have a TOTP")
+			}
+			userTOTP = userTOTPs[0]
+		}
+
+		// Verify the password.
+		{
+			var oneTimePassword string
+			{
+				code, err := totp.GenerateCodeCustom(string(userTOTP.Secret), time.Now(), totp.ValidateOpts{
+					Period:    uint(TOTPPeriod),
+					Skew:      TOTPSkew,
+					Digits:    otp.Digits(TOTPDigits),
+					Algorithm: otp.AlgorithmSHA1,
+				})
+				if err != nil {
+					return output, fmt.Errorf("could not generate TOTP code: %w", err)
+				}
+				oneTimePassword = code
+			}
+
+			if oneTimePassword != meta.Body.Password {
+				return output, restfulwrapper.NewAPIResponseError(http.StatusUnauthorized, "Invalid password")
+			}
+		}
 
 		claims.Subject = meta.Body.Username
 		claims.SessionIdentifier = user.SessionIdentifier
