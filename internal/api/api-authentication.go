@@ -163,7 +163,7 @@ func (a *API) PostAuthenticationLogin(ctx context.Context, meta PostAuthenticati
 
 	if meta.CurrentUser != nil {
 		claims.Subject = meta.CurrentUser.EmailAddress
-		claims.Email = meta.CurrentUser.EmailAddress
+		claims.SessionIdentifier = meta.CurrentUser.ID
 
 		slog.InfoContext(ctx, fmt.Sprintf("This request is already authenticated as: %s", claims.Subject))
 	} else if meta.Body.Username != "" && meta.Body.Password != "" {
@@ -184,10 +184,12 @@ func (a *API) PostAuthenticationLogin(ctx context.Context, meta PostAuthenticati
 			return output, restfulwrapper.NewAPIResponseError(http.StatusInternalServerError, "Multiple users found with the same username")
 		}
 
+		user := users[0]
+
 		// TODO: VERIFY THE PASSWORD.
 
 		claims.Subject = meta.Body.Username
-		claims.Email = meta.Body.Username
+		claims.SessionIdentifier = user.SessionIdentifier
 	} else {
 		slog.InfoContext(ctx, "This request is not authenticated.")
 	}

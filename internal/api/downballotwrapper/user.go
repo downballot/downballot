@@ -208,7 +208,8 @@ func (c Config) findUserInformationFromToken(db *gorm.DB, tokenString string) (*
 	// Validate the user.
 	var users []*schema.User
 	err = db.Session(&gorm.Session{}).
-		Where("username = ?", claims.Email).
+		Where("username = ?", claims.Subject).
+		Where("session_identifier = ?", claims.SessionIdentifier).
 		First(&users).
 		Error
 	if err != nil {

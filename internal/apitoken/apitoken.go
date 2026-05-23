@@ -10,8 +10,9 @@ import (
 // TokenClaims is the collection of claims that will be used in an authentication token.
 type TokenClaims struct {
 	jwt.StandardClaims // These are the standard JWT claims.
+
 	// Custom claims go here.
-	Email string `json:"email,omitempty"` // Here for backward compatibility.
+	SessionIdentifier uint64 `json:"session_identifier"`
 }
 
 // Valid returns an error of the claims are invalid (or nil otherwise).
