@@ -9,5 +9,6 @@ type Config struct {
 	JWTPublicKey  string `json:"jwt_public_key"`
 	JWTPrivateKey string `json:"jwt_private_key"`
 
-	MasterToken string `json:"master_token"`
+	MasterToken   string `json:"master_token"`
+	EncryptionKey string `json:"encryption_key"`
 }

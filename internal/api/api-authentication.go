@@ -13,9 +13,120 @@ import (
 	"github.com/downballot/downballot/internal/apitoken"
 	"github.com/downballot/downballot/internal/durationparser"
 	"github.com/downballot/downballot/internal/schema"
+	"github.com/downballot/downballot/internal/schema/sqltype"
+	"github.com/pquerna/otp"
+	"github.com/pquerna/otp/totp"
 	"github.com/threatmate/restfulwrapper"
 	"gorm.io/gorm"
 )
+
+const TOTPPeriod = 300           // 5 minutes.
+const TOTPDigits = otp.DigitsSix // 6 digits.
+const TOTPSkew = 1               // Allow for a one-time password to be used up to 1 time period after it was generated.
+
+// Email does not require authentication, since it is what creates authentication.
+type PostAuthenticationEmailMetadata struct {
+	restfulwrapper.HTTPMethodPOST
+	downballotwrapper.MayHaveAuthenticatedUser
+	downballotwrapper.UseDatabase
+	_    string                     `api:"httppath:/authentication/email"`
+	_    string                     `api:"doc" description:"Send a one-time password to the user's email address."`
+	_    string                     `api:"notes" description:"This attempts to send a one-time password to the user's email address, if that e-mail address is associated with an account."`
+	Body downballotapi.EmailRequest `api:"body"`
+}
+
+func (a *API) PostAuthenticationEmail(ctx context.Context, meta PostAuthenticationEmailMetadata) (output downballotapi.Envelope[downballotapi.EmailResponse], err error) {
+	slog.InfoContext(ctx, fmt.Sprintf("Email: %s", meta.Body.Email))
+
+	var users []*schema.User
+	err = meta.DB.Session(&gorm.Session{}).
+		Where("email = ?", meta.Body.Email).
+		Find(&users).
+		Error
+	if err != nil {
+		return output, err
+	}
+
+	if len(users) == 0 {
+		// This isn't a valid user.
+
+		// Don't do anything different; send the same message.
+	} else {
+		// This is a valid user.
+		user := users[0]
+
+		var userTOTP *schema.UserTOTP
+		{
+			var userTOTPs []*schema.UserTOTP
+			err = meta.DB.Session(&gorm.Session{}).
+				Where("user_id = ?", user.ID).
+				Find(&userTOTPs).
+				Error
+			if err != nil {
+				return output, err
+			}
+			if len(userTOTPs) == 0 {
+				// This user doesn't have a TOTP yet.
+				// Create one.
+
+				key, err := totp.Generate(totp.GenerateOpts{
+					Issuer:      "-",
+					AccountName: "-",
+					Period:      uint(TOTPPeriod),
+					Digits:      otp.Digits(TOTPDigits),
+					Algorithm:   otp.AlgorithmSHA1,
+				})
+				if err != nil {
+					return output, fmt.Errorf("could not generate TOTP key: %w", err)
+				}
+
+				newTOTP := schema.UserTOTP{
+					UserID: user.ID,
+					Secret: sqltype.EncryptedString(key.Secret()),
+				}
+				err = meta.DB.Transaction(func(tx *gorm.DB) error {
+					err = tx.Session(&gorm.Session{NewDB: true}).
+						Create(&newTOTP).
+						Error
+					if err != nil {
+						return err
+					}
+					return nil
+				})
+				if err != nil {
+					return output, err
+				}
+				userTOTP = &newTOTP
+			} else {
+				// This user has a TOTP.
+				userTOTP = userTOTPs[0]
+			}
+		}
+
+		var password string
+		{
+			code, err := totp.GenerateCodeCustom(string(userTOTP.Secret), time.Now(), totp.ValidateOpts{
+				Period:    uint(TOTPPeriod),
+				Skew:      TOTPSkew,
+				Digits:    otp.Digits(TOTPDigits),
+				Algorithm: otp.AlgorithmSHA1,
+			})
+			if err != nil {
+				return output, fmt.Errorf("could not generate TOTP code: %w", err)
+			}
+			password = code
+		}
+
+		slog.InfoContext(ctx, fmt.Sprintf("One-time password: %s", password))
+
+		// TODO: Send the e-mail.
+	}
+
+	output.Message = "OK"
+	output.Success = true
+	output.Data.Message = "Check your email for a one-time password."
+	return output, nil
+}
 
 // Login does not require authentication, since it is what creates authentication.
 // Note, however, that if you hit this endpoint with a token, you will essentially use that token as your credentials and receive a new token.

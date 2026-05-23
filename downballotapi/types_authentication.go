@@ -13,6 +13,15 @@ type AuthenticationStatusUser struct {
 	Admin bool   `json:"admin"`
 }
 
+type EmailRequest struct {
+	Email string `json:"email"`
+}
+
+// EmailResponse is the response from sending an email.
+type EmailResponse struct {
+	Message string `json:"message"`
+}
+
 // LoginRequest is used to sign in with an account.
 type LoginRequest struct {
 	Username string `json:"username" description:"(username/password) The username."`

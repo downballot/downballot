@@ -20,6 +20,7 @@ import (
 	"github.com/downballot/downballot/internal/database"
 	"github.com/downballot/downballot/internal/httpextra"
 	"github.com/downballot/downballot/internal/migrator"
+	"github.com/downballot/downballot/internal/schema/sqltype"
 	"github.com/joho/godotenv"
 	"github.com/lmittmann/tint"
 	"github.com/mattn/go-isatty"
@@ -167,6 +168,8 @@ func main() {
 			os.Exit(1)
 		}
 	}
+
+	sqltype.SetEncryptionKey(config.EncryptionKey)
 
 	db, err := database.New(ctx, config.DatabaseDriver, config.DatabaseString)
 	if err != nil {
