@@ -11,6 +11,7 @@ import (
 	"io"
 )
 
+// encryptionKey is the global encryption key.
 var encryptionKey string
 
 // SetEncryptionKey sets the encryption key.
