@@ -32,7 +32,7 @@ type Filter struct {
 
 // PatchFilterRequest is the request for patching the group.
 type PatchFilterRequest struct {
-	UserID      *string `json:"user_id"`
+	//UserID      *string `json:"user_id"` // TODO: Consider allowing the user to change the user_id.
 	Name        *string `json:"name"`
 	Description *string `json:"description"`
 	Filter      *string `json:"filter"`

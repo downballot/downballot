@@ -16,6 +16,31 @@ type hasGroup struct {
 	Group   schema.Group `api:"database.query:where:id = ? AND organization_id IN (SELECT id FROM organization),GroupID"`
 }
 
+type DeleteOrganizationIDGroupIDMetadata struct {
+	restfulwrapper.HTTPMethodDELETE
+	downballotwrapper.RequireAuthenticatedUser
+	downballotwrapper.UseDatabase
+	hasOrganization
+	hasGroup
+	_ string `api:"httppath:/organization/{organization_id}/group/{group_id}"`
+	_ string `api:"doc" description:"Delete the group."`
+	_ string `api:"notes" description:"This deletes the group."`
+}
+
+func (a *API) DeleteOrganizationIDGroupID(ctx context.Context, meta DeleteOrganizationIDGroupIDMetadata) error {
+	err := meta.DB.Transaction(func(tx *gorm.DB) error {
+		err := tx.Session(&gorm.Session{NewDB: true}).
+			Where("id = ?", meta.Group.ID).
+			Delete(&schema.Group{}).
+			Error
+		return err
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 type GetOrganizationIDGroupIDMetadata struct {
 	restfulwrapper.HTTPMethodGET
 	downballotwrapper.RequireAuthenticatedUser
