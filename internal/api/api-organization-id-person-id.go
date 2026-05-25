@@ -3,7 +3,9 @@ package api
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net/http"
+	"slices"
 	"strconv"
 	"time"
 
@@ -117,6 +119,7 @@ func (a *API) PatchOrganizationIDPersonID(ctx context.Context, meta PatchOrganiz
 
 				audit := schema.PersonAudit{
 					PersonID:                personID,
+					UserID:                  meta.CurrentUser.ID,
 					PersonFieldDefinitionID: fieldDefinition.ID,
 					Timestamp:               sqltype.DateTime(time.Now()),
 				}
@@ -274,6 +277,28 @@ func (a *API) GetOrganizationIDPersonIDAudit(ctx context.Context, meta GetOrgani
 		return output, fmt.Errorf("could not find audits: %w", err)
 	}
 
+	userIDToUsernameMap := map[uint64]string{}
+	{
+		userIDMap := map[uint64]bool{}
+		for _, audit := range audits {
+			userIDMap[audit.UserID] = true
+		}
+		var users []*schema.User
+		err = meta.DB.Session(&gorm.Session{}).
+			Where("id IN (?)", slices.Collect(maps.Keys(userIDMap))).
+			Find(&users).
+			Error
+		if err != nil {
+			return output, fmt.Errorf("could not find users: %w", err)
+		}
+		for userID := range userIDMap {
+			userIDToUsernameMap[userID] = "user #" + fmt.Sprintf("%d", userID)
+		}
+		for _, user := range users {
+			userIDToUsernameMap[user.ID] = user.Username
+		}
+	}
+
 	output.Message = "OK"
 	output.Success = true
 	output.Data.Audits = []*downballotapi.PersonAudit{}
@@ -285,6 +310,7 @@ func (a *API) GetOrganizationIDPersonIDAudit(ctx context.Context, meta GetOrgani
 
 		output.Data.Audits = append(output.Data.Audits, &downballotapi.PersonAudit{
 			ID:        fmt.Sprintf("%d", audit.ID),
+			Username:  userIDToUsernameMap[audit.UserID],
 			VoterID:   meta.VoterID,
 			Timestamp: resttype.DateTime(audit.Timestamp),
 			Field:     fieldDefinition.Name,

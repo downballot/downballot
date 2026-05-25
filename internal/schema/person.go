@@ -40,6 +40,8 @@ type PersonAudit struct {
 	ID                      uint64                 `gorm:"column:id;primaryKey;not null;autoIncrement"`
 	PersonID                uint64                 `gorm:"column:person_id;not null"`
 	Person                  *Person                `json:"-" gorm:"belongsTo;constraint:fk_person_audit_person,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:person_id;references:id"`
+	UserID                  uint64                 `gorm:"column:user_id;not null"`
+	User                    *User                  `json:"-" gorm:"belongsTo;constraint:fk_user_audit_user,OnDelete:RESTRICT,OnUpdate:CASCADE;foreignKey:user_id;references:id"`
 	Timestamp               sqltype.DateTime       `gorm:"column:timestamp;not null"`
 	PersonFieldDefinitionID uint64                 `gorm:"column:person_field_definition_id;not null"`
 	PersonFieldDefinition   *PersonFieldDefinition `json:"-" gorm:"belongsTo;constraint:fk_person_audit_person_field_definition,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:person_field_definition_id;references:id"`

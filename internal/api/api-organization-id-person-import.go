@@ -403,6 +403,7 @@ func (a *API) PostOrganizationIDPersonImport(ctx context.Context, meta PostOrgan
 				}
 
 				audit := schema.PersonAudit{
+					UserID:                  meta.CurrentUser.ID,
 					PersonID:                personID,
 					PersonFieldDefinitionID: fieldDefinition.ID,
 					Timestamp:               sqltype.DateTime(time.Now()),

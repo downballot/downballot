@@ -37,6 +37,7 @@ func (r ListPersonAuditsResponse) MarshallCSV() (restcsv.Table, error) {
 // PersonAudit is an person audit.
 type PersonAudit struct {
 	ID        string            `json:"id"`
+	Username  string            `json:"username"`
 	VoterID   string            `json:"voter_id"`
 	Timestamp resttype.DateTime `json:"timestamp"`
 	Field     string            `json:"field"`
