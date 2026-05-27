@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 
 	"github.com/downballot/downballot/downballotapi"
@@ -12,51 +13,10 @@ import (
 	"gorm.io/gorm"
 )
 
-func filterPersons(ctx context.Context, db *gorm.DB, userID uint64, organizationID uint64, groupID *uint64, filterString *string, returnFields *[]string, limit int) ([]*downballotapi.Person, error) {
-	hierarchies, err := getGroupHierarchiesForUser(db, userID, organizationID)
-	if err != nil {
-		return nil, err
-	}
-	slog.InfoContext(ctx, fmt.Sprintf("Hierarchies: (%d)", len(hierarchies)))
-
-	fieldDefinitionByIDMap := map[uint64]*schema.PersonFieldDefinition{}
-	fieldDefinitionByNameMap := map[string]*schema.PersonFieldDefinition{}
-	{
-		var fieldDefinitions []*schema.PersonFieldDefinition
-		err = db.Session(&gorm.Session{}).
-			Where("organization_id = ?", organizationID).
-			Find(&fieldDefinitions).
-			Error
-		if err != nil {
-			return nil, fmt.Errorf("could not find field definitions: %w", err)
-		}
-		for _, fieldDefinition := range fieldDefinitions {
-			fieldDefinitionByIDMap[fieldDefinition.ID] = fieldDefinition
-			fieldDefinitionByNameMap[fieldDefinition.Name] = fieldDefinition
-		}
-	}
-
-	if groupID == nil {
-		hierarchies = condenseHierarchies(hierarchies)
-		slog.InfoContext(ctx, fmt.Sprintf("Consensed hierarchies: (%d)", len(hierarchies)))
-	} else {
-		var groupHierarchy []*schema.Group
-		for _, hierarchy := range hierarchies {
-			if len(hierarchy) > 0 && hierarchy[len(hierarchy)-1].ID == *groupID {
-				groupHierarchy = hierarchy
-				break
-			}
-		}
-
-		if len(groupHierarchy) == 0 {
-			return nil, fmt.Errorf("could not find hierarchy for group.id=%d", *groupID)
-		}
-
-		hierarchies = [][]*schema.Group{groupHierarchy}
-		slog.InfoContext(ctx, fmt.Sprintf("Group-limited hierarchies: (%d)", len(hierarchies)))
-	}
-
-	query := db.Session(&gorm.Session{})
+func buildPersonQuery(ctx context.Context, db *gorm.DB, organizationID uint64, groupHierarchies [][]*schema.Group, filterString *string, fieldDefinitionByNameMap map[string]*schema.PersonFieldDefinition) (*gorm.DB, error) {
+	query := db.Session(&gorm.Session{}).
+		Model(&schema.Person{}).
+		Where("organization_id IN (SELECT id FROM organization WHERE id = ?)", organizationID)
 
 	fieldTableMap := map[string]string{} // This maps a field name to the table that represents it.
 	var f func(clause filter.Clause, groupQuery *gorm.DB) error
@@ -137,14 +97,14 @@ func filterPersons(ctx context.Context, db *gorm.DB, userID uint64, organization
 				switch typedClause.Operation {
 				case filter.ClauseGroupOperationAnd:
 					newQuery := db.Session(&gorm.Session{NewDB: true, Initialized: true})
-					err = f(groupClause, newQuery)
+					err := f(groupClause, newQuery)
 					if err != nil {
 						return err
 					}
 					groupQuery.Where(newQuery)
 				case filter.ClauseGroupOperationOr:
 					newQuery := db.Session(&gorm.Session{NewDB: true, Initialized: true})
-					err = f(groupClause, newQuery)
+					err := f(groupClause, newQuery)
 					if err != nil {
 						return err
 					}
@@ -159,7 +119,7 @@ func filterPersons(ctx context.Context, db *gorm.DB, userID uint64, organization
 
 	{
 		var hierarchyStrings []string
-		for _, groupHierarchy := range hierarchies {
+		for _, groupHierarchy := range groupHierarchies {
 			// This shouldn't be possible, but skip any broken hierarchies.
 			if len(groupHierarchy) == 0 {
 				continue
@@ -201,10 +161,61 @@ func filterPersons(ctx context.Context, db *gorm.DB, userID uint64, organization
 		}
 	}
 
+	return query, nil
+}
+
+func filterPersons(ctx context.Context, db *gorm.DB, userID uint64, organizationID uint64, groupID *uint64, filterString *string, returnFields *[]string, limit int) ([]*downballotapi.Person, error) {
+	groupHierarchies, err := getGroupHierarchiesForUser(db, userID, organizationID)
+	if err != nil {
+		return nil, err
+	}
+	slog.InfoContext(ctx, fmt.Sprintf("Hierarchies: (%d)", len(groupHierarchies)))
+
+	fieldDefinitionByIDMap := map[uint64]*schema.PersonFieldDefinition{}
+	fieldDefinitionByNameMap := map[string]*schema.PersonFieldDefinition{}
+	{
+		var fieldDefinitions []*schema.PersonFieldDefinition
+		err = db.Session(&gorm.Session{}).
+			Where("organization_id = ?", organizationID).
+			Find(&fieldDefinitions).
+			Error
+		if err != nil {
+			return nil, fmt.Errorf("could not find field definitions: %w", err)
+		}
+		for _, fieldDefinition := range fieldDefinitions {
+			fieldDefinitionByIDMap[fieldDefinition.ID] = fieldDefinition
+			fieldDefinitionByNameMap[fieldDefinition.Name] = fieldDefinition
+		}
+	}
+
+	if groupID == nil {
+		groupHierarchies = condenseHierarchies(groupHierarchies)
+		slog.InfoContext(ctx, fmt.Sprintf("Consensed hierarchies: (%d)", len(groupHierarchies)))
+	} else {
+		var groupHierarchy []*schema.Group
+		for _, hierarchy := range groupHierarchies {
+			if len(hierarchy) > 0 && hierarchy[len(hierarchy)-1].ID == *groupID {
+				groupHierarchy = hierarchy
+				break
+			}
+		}
+
+		if len(groupHierarchy) == 0 {
+			return nil, fmt.Errorf("could not find hierarchy for group.id=%d", *groupID)
+		}
+
+		groupHierarchies = [][]*schema.Group{groupHierarchy}
+		slog.InfoContext(ctx, fmt.Sprintf("Group-limited hierarchies: (%d)", len(groupHierarchies)))
+	}
+
+	query, err := buildPersonQuery(ctx, db, organizationID, groupHierarchies, filterString, fieldDefinitionByNameMap)
+	if err != nil {
+		return nil, err
+	}
+
 	var persons []*schema.Person
 	err = query.
 		Distinct().
-		Where("organization_id IN (SELECT id FROM organization WHERE id = ?)", organizationID).
 		Limit(limit).
 		Find(&persons).
 		Error
@@ -269,4 +280,67 @@ func filterPersons(ctx context.Context, db *gorm.DB, userID uint64, organization
 	}
 
 	return output, nil
+}
+
+func filterPersonsCount(ctx context.Context, db *gorm.DB, userID uint64, organizationID uint64, groupIDs []uint64, filterString *string) (map[uint64]int64, error) {
+	groupHierarchies, err := getGroupHierarchiesForUser(db, userID, organizationID)
+	if err != nil {
+		return nil, err
+	}
+	slog.InfoContext(ctx, fmt.Sprintf("Hierarchies: (%d)", len(groupHierarchies)))
+
+	fieldDefinitionByIDMap := map[uint64]*schema.PersonFieldDefinition{}
+	fieldDefinitionByNameMap := map[string]*schema.PersonFieldDefinition{}
+	{
+		var fieldDefinitions []*schema.PersonFieldDefinition
+		err = db.Session(&gorm.Session{}).
+			Where("organization_id = ?", organizationID).
+			Find(&fieldDefinitions).
+			Error
+		if err != nil {
+			return nil, fmt.Errorf("could not find field definitions: %w", err)
+		}
+		for _, fieldDefinition := range fieldDefinitions {
+			fieldDefinitionByIDMap[fieldDefinition.ID] = fieldDefinition
+			fieldDefinitionByNameMap[fieldDefinition.Name] = fieldDefinition
+		}
+	}
+
+	groupIDToCountMap := map[uint64]int64{}
+	for _, groupID := range groupIDs {
+		groupIDToCountMap[groupID] = 0
+	}
+
+	slog.InfoContext(ctx, fmt.Sprintf("Group IDs: (%d)", len(groupIDs)))
+	for _, hierarchy := range groupHierarchies {
+		if len(hierarchy) == 0 {
+			continue
+		}
+		if !slices.Contains(groupIDs, hierarchy[len(hierarchy)-1].ID) {
+			continue
+		}
+		groupID := hierarchy[len(hierarchy)-1].ID
+		groupHierarchy := hierarchy
+
+		groupHierarchies = [][]*schema.Group{groupHierarchy}
+		slog.InfoContext(ctx, fmt.Sprintf("Group-limited hierarchies: (%d)", len(groupHierarchies)))
+
+		query, err := buildPersonQuery(ctx, db, organizationID, groupHierarchies, filterString, fieldDefinitionByNameMap)
+		if err != nil {
+			return nil, err
+		}
+
+		var count int64
+		err = query.
+			Distinct().
+			Count(&count).
+			Error
+		if err != nil {
+			return nil, err
+		}
+
+		groupIDToCountMap[groupID] = count
+	}
+
+	return groupIDToCountMap, nil
 }
