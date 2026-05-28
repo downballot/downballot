@@ -18,6 +18,83 @@ func buildPersonQuery(ctx context.Context, db *gorm.DB, organizationID uint64, g
 		Model(&schema.Person{}).
 		Where("organization_id IN (SELECT id FROM organization WHERE id = ?)", organizationID)
 
+	fieldJoinMap := map[string]string{} // This maps a field name to the the kind of join to use.
+	var f2 func(clause filter.Clause) error
+	f2 = func(clause filter.Clause) error {
+		slog.DebugContext(ctx, fmt.Sprintf("f2: clause: %+v", clause))
+		switch typedClause := clause.(type) {
+		case *filter.ClauseCondition:
+			slog.DebugContext(ctx, fmt.Sprintf("f2: condition: %+v", typedClause))
+
+			personFieldDefinition := fieldDefinitionByNameMap[typedClause.Name]
+			if personFieldDefinition == nil {
+				return fmt.Errorf("unknown field: %s", typedClause.Name)
+			}
+
+			fieldJoinType := "INNER JOIN"
+			if fieldJoinMap[typedClause.Name] != "" {
+				fieldJoinType = fieldJoinMap[typedClause.Name]
+			} else {
+				fieldJoinMap[typedClause.Name] = fieldJoinType
+			}
+
+			switch typedClause.Operation {
+			case filter.OperationEquals:
+				// Inner join required.
+			case filter.OperationNotEquals:
+				fieldJoinType = "LEFT OUTER JOIN"
+			case filter.OperationIs:
+				if typedClause.Value == "null" {
+					fieldJoinType = "LEFT OUTER JOIN"
+				} else {
+					return fmt.Errorf("invalid value for is operation: %s", typedClause.Value)
+				}
+			case filter.OperationIsNot:
+				if typedClause.Value == "null" {
+					// Inner join is fine.
+				} else {
+					return fmt.Errorf("invalid value for is not operation: %s", typedClause.Value)
+				}
+			case filter.OperationGreaterThan:
+				// Inner join is fine.
+			case filter.OperationGreaterThanOrEqual:
+				// Inner join is fine.
+			case filter.OperationLessThan:
+				// Inner join is fine.
+			case filter.OperationLessThanOrEqual:
+				// Inner join is fine.
+			case filter.OperationWildcard:
+				// Inner join is fine.
+			default:
+				return fmt.Errorf("unknown operation: %s", typedClause.Operation)
+			}
+
+			if fieldJoinType != "INNER JOIN" {
+				fieldJoinMap[typedClause.Name] = fieldJoinType
+			}
+		case *filter.ClauseGroup:
+			slog.DebugContext(ctx, fmt.Sprintf("f2: group: %+v", typedClause))
+
+			for _, groupClause := range typedClause.Clauses {
+				switch typedClause.Operation {
+				case filter.ClauseGroupOperationAnd:
+					err := f2(groupClause)
+					if err != nil {
+						return err
+					}
+				case filter.ClauseGroupOperationOr:
+					err := f2(groupClause)
+					if err != nil {
+						return err
+					}
+				}
+			}
+		default:
+			return fmt.Errorf("unknown clause type: %T", typedClause)
+		}
+		return nil
+	}
+
 	fieldTableMap := map[string]string{} // This maps a field name to the table that represents it.
 	var f func(clause filter.Clause, groupQuery *gorm.DB) error
 	f = func(clause filter.Clause, groupQuery *gorm.DB) error {
@@ -38,7 +115,13 @@ func buildPersonQuery(ctx context.Context, db *gorm.DB, organizationID uint64, g
 				fieldTableName = "person_field_join" + fmt.Sprintf("%d", len(fieldTableMap)+1)
 				fieldTableMap[typedClause.Name] = fieldTableName
 
-				query = query.Joins("LEFT OUTER JOIN person_field AS "+fieldTableName+" ON person.id = "+fieldTableName+".person_id AND "+fieldTableName+".person_field_definition_id = ?", personFieldDefinition.ID)
+				fieldJoinType := fieldJoinMap[typedClause.Name]
+				if fieldJoinType == "" {
+					slog.WarnContext(ctx, fmt.Sprintf("no field join type for field: %s", typedClause.Name))
+					fieldJoinType = "LEFT OUTER JOIN"
+				}
+
+				query = query.Joins(fieldJoinType+" person_field AS "+fieldTableName+" ON person.id = "+fieldTableName+".person_id AND "+fieldTableName+".person_field_definition_id = ?", personFieldDefinition.ID)
 			}
 			switch typedClause.Operation {
 			case filter.OperationEquals:
@@ -152,6 +235,12 @@ func buildPersonQuery(ctx context.Context, db *gorm.DB, organizationID uint64, g
 			if err != nil {
 				return nil, err
 			}
+
+			err = f2(groupClause)
+			if err != nil {
+				return nil, err
+			}
+
 			newQuery := db.Session(&gorm.Session{NewDB: true, Initialized: true})
 			err = f(groupClause, newQuery)
 			if err != nil {
