@@ -20,10 +20,10 @@ func buildPersonQuery(ctx context.Context, db *gorm.DB, organizationID uint64, g
 		Where("organization_id IN (SELECT id FROM organization WHERE id = ?)", organizationID)
 
 	type FieldInfo struct {
-		FieldName               string
-		InnerJoin               bool
-		TableName               string
-		PersonFieldDefinitionID uint64
+		FieldName               string // The name of the field.
+		InnerJoin               bool   // True if the join is an inner join, false if it is a left outer join.
+		TableName               string // The name of the table.
+		PersonFieldDefinitionID uint64 // The ID of the person field definition.
 	}
 
 	fieldInfoMap := map[string]*FieldInfo{} // This maps a field name the table info for it.
@@ -55,7 +55,7 @@ func buildPersonQuery(ctx context.Context, db *gorm.DB, organizationID uint64, g
 
 			switch typedClause.Operation {
 			case filter.OperationEquals:
-				// Inner join required.
+				// Inner join is fine.
 			case filter.OperationNotEquals:
 				fieldInfo.InnerJoin = false
 			case filter.OperationIs:
@@ -236,11 +236,13 @@ func buildPersonQuery(ctx context.Context, db *gorm.DB, organizationID uint64, g
 				return nil, err
 			}
 
+			// Build the field info map; this will populate `fieldInfoMap`.
 			err = recursiveBuildInfo(groupClause)
 			if err != nil {
 				return nil, err
 			}
 
+			// Sort the fields so that all of the inner joins are first, followed by all of the left outer joins.
 			var fieldInfoList []*FieldInfo
 			for _, fieldInfo := range fieldInfoMap {
 				fieldInfoList = append(fieldInfoList, fieldInfo)
@@ -262,6 +264,7 @@ func buildPersonQuery(ctx context.Context, db *gorm.DB, organizationID uint64, g
 			})
 			slog.DebugContext(ctx, fmt.Sprintf("Field info list: (%d)", len(fieldInfoList)))
 
+			// Set up the joins.
 			for _, fieldInfo := range fieldInfoList {
 				joinType := "INNER JOIN"
 				if !fieldInfo.InnerJoin {
@@ -270,6 +273,7 @@ func buildPersonQuery(ctx context.Context, db *gorm.DB, organizationID uint64, g
 				query = query.Joins("/* "+fieldInfo.FieldName+" */ "+joinType+" person_field AS "+fieldInfo.TableName+" ON person.id = "+fieldInfo.TableName+".person_id AND "+fieldInfo.TableName+".person_field_definition_id = ?", fieldInfo.PersonFieldDefinitionID)
 			}
 
+			// Tack on the WHERE clause based on the filter.
 			newQuery := db.Session(&gorm.Session{NewDB: true, Initialized: true})
 
 			err = f(groupClause, newQuery)
