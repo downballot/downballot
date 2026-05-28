@@ -1,6 +1,7 @@
 package api
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"log/slog"
@@ -18,34 +19,48 @@ func buildPersonQuery(ctx context.Context, db *gorm.DB, organizationID uint64, g
 		Model(&schema.Person{}).
 		Where("organization_id IN (SELECT id FROM organization WHERE id = ?)", organizationID)
 
-	fieldJoinMap := map[string]string{} // This maps a field name to the the kind of join to use.
-	var f2 func(clause filter.Clause) error
-	f2 = func(clause filter.Clause) error {
-		slog.DebugContext(ctx, fmt.Sprintf("f2: clause: %+v", clause))
+	type FieldInfo struct {
+		FieldName               string
+		InnerJoin               bool
+		TableName               string
+		PersonFieldDefinitionID uint64
+	}
+
+	fieldInfoMap := map[string]*FieldInfo{} // This maps a field name the table info for it.
+
+	var recursiveBuildInfo func(clause filter.Clause) error
+	recursiveBuildInfo = func(clause filter.Clause) error {
+		slog.DebugContext(ctx, fmt.Sprintf("recursiveBuildInfo: clause: %+v", clause))
 		switch typedClause := clause.(type) {
 		case *filter.ClauseCondition:
-			slog.DebugContext(ctx, fmt.Sprintf("f2: condition: %+v", typedClause))
+			slog.DebugContext(ctx, fmt.Sprintf("recursiveBuildInfo: condition: %+v", typedClause))
 
 			personFieldDefinition := fieldDefinitionByNameMap[typedClause.Name]
 			if personFieldDefinition == nil {
 				return fmt.Errorf("unknown field: %s", typedClause.Name)
 			}
 
-			fieldJoinType := "INNER JOIN"
-			if fieldJoinMap[typedClause.Name] != "" {
-				fieldJoinType = fieldJoinMap[typedClause.Name]
+			var fieldInfo *FieldInfo
+			if fieldInfoMap[typedClause.Name] != nil {
+				fieldInfo = fieldInfoMap[typedClause.Name]
 			} else {
-				fieldJoinMap[typedClause.Name] = fieldJoinType
+				fieldInfo = &FieldInfo{
+					FieldName:               typedClause.Name,
+					InnerJoin:               true,
+					TableName:               "person_field_join" + fmt.Sprintf("%d", len(fieldInfoMap)+1),
+					PersonFieldDefinitionID: personFieldDefinition.ID,
+				}
+				fieldInfoMap[typedClause.Name] = fieldInfo
 			}
 
 			switch typedClause.Operation {
 			case filter.OperationEquals:
 				// Inner join required.
 			case filter.OperationNotEquals:
-				fieldJoinType = "LEFT OUTER JOIN"
+				fieldInfo.InnerJoin = false
 			case filter.OperationIs:
 				if typedClause.Value == "null" {
-					fieldJoinType = "LEFT OUTER JOIN"
+					fieldInfo.InnerJoin = false
 				} else {
 					return fmt.Errorf("invalid value for is operation: %s", typedClause.Value)
 				}
@@ -68,22 +83,18 @@ func buildPersonQuery(ctx context.Context, db *gorm.DB, organizationID uint64, g
 			default:
 				return fmt.Errorf("unknown operation: %s", typedClause.Operation)
 			}
-
-			if fieldJoinType != "INNER JOIN" {
-				fieldJoinMap[typedClause.Name] = fieldJoinType
-			}
 		case *filter.ClauseGroup:
-			slog.DebugContext(ctx, fmt.Sprintf("f2: group: %+v", typedClause))
+			slog.DebugContext(ctx, fmt.Sprintf("recursiveBuildInfo: group: %+v", typedClause))
 
 			for _, groupClause := range typedClause.Clauses {
 				switch typedClause.Operation {
 				case filter.ClauseGroupOperationAnd:
-					err := f2(groupClause)
+					err := recursiveBuildInfo(groupClause)
 					if err != nil {
 						return err
 					}
 				case filter.ClauseGroupOperationOr:
-					err := f2(groupClause)
+					err := recursiveBuildInfo(groupClause)
 					if err != nil {
 						return err
 					}
@@ -95,7 +106,6 @@ func buildPersonQuery(ctx context.Context, db *gorm.DB, organizationID uint64, g
 		return nil
 	}
 
-	fieldTableMap := map[string]string{} // This maps a field name to the table that represents it.
 	var f func(clause filter.Clause, groupQuery *gorm.DB) error
 	f = func(clause filter.Clause, groupQuery *gorm.DB) error {
 		slog.DebugContext(ctx, fmt.Sprintf("f: clause: %+v", clause))
@@ -108,68 +118,58 @@ func buildPersonQuery(ctx context.Context, db *gorm.DB, organizationID uint64, g
 				return fmt.Errorf("unknown field: %s", typedClause.Name)
 			}
 
-			var fieldTableName string
-			if fieldTableMap[typedClause.Name] != "" {
-				fieldTableName = fieldTableMap[typedClause.Name]
-			} else {
-				fieldTableName = "person_field_join" + fmt.Sprintf("%d", len(fieldTableMap)+1)
-				fieldTableMap[typedClause.Name] = fieldTableName
-
-				fieldJoinType := fieldJoinMap[typedClause.Name]
-				if fieldJoinType == "" {
-					slog.WarnContext(ctx, fmt.Sprintf("no field join type for field: %s", typedClause.Name))
-					fieldJoinType = "LEFT OUTER JOIN"
-				}
-
-				query = query.Joins(fieldJoinType+" person_field AS "+fieldTableName+" ON person.id = "+fieldTableName+".person_id AND "+fieldTableName+".person_field_definition_id = ?", personFieldDefinition.ID)
+			fieldInfo := fieldInfoMap[typedClause.Name]
+			if fieldInfo == nil {
+				return fmt.Errorf("unknown field: %s", typedClause.Name)
 			}
+
 			switch typedClause.Operation {
 			case filter.OperationEquals:
-				groupQuery = groupQuery.Where(fieldTableName+".value = ?", typedClause.Value)
+				groupQuery = groupQuery.Where(fieldInfo.TableName+".value = ?", typedClause.Value)
 			case filter.OperationNotEquals:
-				groupQuery = groupQuery.Where(fieldTableName+".value IS NULL OR "+fieldTableName+".value != ?", typedClause.Value)
+				groupQuery = groupQuery.Where(fieldInfo.TableName+".value IS NULL OR "+fieldInfo.TableName+".value != ?", typedClause.Value)
 			case filter.OperationIs:
 				if typedClause.Value == "null" {
-					groupQuery = groupQuery.Where(fieldTableName + ".value IS NULL")
+					groupQuery = groupQuery.Where(fieldInfo.TableName + ".value IS NULL")
 				} else {
 					return fmt.Errorf("invalid value for is operation: %s", typedClause.Value)
 				}
 			case filter.OperationIsNot:
 				if typedClause.Value == "null" {
-					groupQuery = groupQuery.Where(fieldTableName + ".value IS NOT NULL")
+					groupQuery = groupQuery.Where(fieldInfo.TableName + ".value IS NOT NULL")
 				} else {
 					return fmt.Errorf("invalid value for is not operation: %s", typedClause.Value)
 				}
 			case filter.OperationGreaterThan:
 				switch personFieldDefinition.Type {
 				case "integer":
-					groupQuery = groupQuery.Where("CAST("+fieldTableName+".value AS INTEGER) > ?", typedClause.Value)
+					groupQuery = groupQuery.Where("CAST("+fieldInfo.TableName+".value AS INTEGER) > ?", typedClause.Value)
 				default:
-					groupQuery = groupQuery.Where(fieldTableName+".value > ?", typedClause.Value)
+					groupQuery = groupQuery.Where(fieldInfo.TableName+".value > ?", typedClause.Value)
 				}
 			case filter.OperationGreaterThanOrEqual:
 				switch personFieldDefinition.Type {
 				case "integer":
-					groupQuery = groupQuery.Where("CAST("+fieldTableName+".value AS INTEGER) >= ?", typedClause.Value)
+					groupQuery = groupQuery.Where("CAST("+fieldInfo.TableName+".value AS INTEGER) >= ?", typedClause.Value)
 				default:
-					groupQuery = groupQuery.Where(fieldTableName+".value >= ?", typedClause.Value)
+					groupQuery = groupQuery.Where(fieldInfo.TableName+".value >= ?", typedClause.Value)
 				}
 			case filter.OperationLessThan:
 				switch personFieldDefinition.Type {
 				case "integer":
-					groupQuery = groupQuery.Where("CAST("+fieldTableName+".value AS INTEGER) < ?", typedClause.Value)
+					groupQuery = groupQuery.Where("CAST("+fieldInfo.TableName+".value AS INTEGER) < ?", typedClause.Value)
 				default:
-					groupQuery = groupQuery.Where(fieldTableName+".value < ?", typedClause.Value)
+					groupQuery = groupQuery.Where(fieldInfo.TableName+".value < ?", typedClause.Value)
 				}
 			case filter.OperationLessThanOrEqual:
 				switch personFieldDefinition.Type {
 				case "integer":
-					groupQuery = groupQuery.Where("CAST("+fieldTableName+".value AS INTEGER) <= ?", typedClause.Value)
+					groupQuery = groupQuery.Where("CAST("+fieldInfo.TableName+".value AS INTEGER) <= ?", typedClause.Value)
 				default:
-					groupQuery = groupQuery.Where(fieldTableName+".value <= ?", typedClause.Value)
+					groupQuery = groupQuery.Where(fieldInfo.TableName+".value <= ?", typedClause.Value)
 				}
 			case filter.OperationWildcard:
-				groupQuery = groupQuery.Where(fieldTableName+".value LIKE ?", strings.ReplaceAll(typedClause.Value, "*", "%"))
+				groupQuery = groupQuery.Where(fieldInfo.TableName+".value LIKE ?", strings.ReplaceAll(typedClause.Value, "*", "%"))
 			default:
 				return fmt.Errorf("unknown operation: %s", typedClause.Operation)
 			}
@@ -236,12 +236,42 @@ func buildPersonQuery(ctx context.Context, db *gorm.DB, organizationID uint64, g
 				return nil, err
 			}
 
-			err = f2(groupClause)
+			err = recursiveBuildInfo(groupClause)
 			if err != nil {
 				return nil, err
 			}
 
+			var fieldInfoList []*FieldInfo
+			for _, fieldInfo := range fieldInfoMap {
+				fieldInfoList = append(fieldInfoList, fieldInfo)
+			}
+			slices.SortFunc(fieldInfoList, func(left, right *FieldInfo) int {
+				leftInnerJoin := 1
+				if !left.InnerJoin {
+					leftInnerJoin = 0
+				}
+				rightInnerJoin := 1
+				if !right.InnerJoin {
+					rightInnerJoin = 0
+				}
+				diff := -cmp.Compare(leftInnerJoin, rightInnerJoin)
+				if diff != 0 {
+					return diff
+				}
+				return cmp.Compare(left.TableName, right.TableName)
+			})
+			slog.DebugContext(ctx, fmt.Sprintf("Field info list: (%d)", len(fieldInfoList)))
+
+			for _, fieldInfo := range fieldInfoList {
+				joinType := "INNER JOIN"
+				if !fieldInfo.InnerJoin {
+					joinType = "LEFT OUTER JOIN"
+				}
+				query = query.Joins("/* "+fieldInfo.FieldName+" */ "+joinType+" person_field AS "+fieldInfo.TableName+" ON person.id = "+fieldInfo.TableName+".person_id AND "+fieldInfo.TableName+".person_field_definition_id = ?", fieldInfo.PersonFieldDefinitionID)
+			}
+
 			newQuery := db.Session(&gorm.Session{NewDB: true, Initialized: true})
+
 			err = f(groupClause, newQuery)
 			if err != nil {
 				return nil, err
