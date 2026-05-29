@@ -6,7 +6,7 @@ import (
 	"github.com/downballot/downballot/downballotapi"
 	"github.com/downballot/downballot/internal/api/downballotwrapper"
 	"github.com/downballot/downballot/internal/api/resttype"
-	"github.com/threatmate/restfulwrapper"
+	"github.com/tekkamanendless/restfulwrapper"
 )
 
 type GetOrganizationIDPersonMetadata struct {

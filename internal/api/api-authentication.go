@@ -18,7 +18,7 @@ import (
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 	"github.com/tekkamanendless/go-mailer"
-	"github.com/threatmate/restfulwrapper"
+	"github.com/tekkamanendless/restfulwrapper"
 	"gorm.io/gorm"
 )
 

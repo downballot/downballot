@@ -6,13 +6,16 @@ import (
 
 	"github.com/downballot/downballot/downballotapi"
 	"github.com/downballot/downballot/internal/api/downballotwrapper"
+	"github.com/downballot/downballot/internal/permissionset"
 	"github.com/downballot/downballot/internal/schema"
-	"github.com/threatmate/restfulwrapper"
+	"github.com/tekkamanendless/restfulwrapper"
 )
 
 type hasOrganization struct {
-	OrganizationID string              `api:"path:organization_id" description:"The organization ID"`
-	Organization   schema.Organization `api:"database.query:where:id = ?,OrganizationID"`
+	OrganizationID string                      `api:"path:organization_id" description:"The organization ID"`
+	Organization   schema.Organization         `api:"database.query:where:id = ?,OrganizationID"`
+	_              any                         `api:"attribute:downballotwrapper.organizationID:Organization.ID"`
+	PermissionSet  permissionset.PermissionSet `api:"downballot.organizationPermissionSet"`
 }
 type GetOrganizationIDMetadata struct {
 	restfulwrapper.HTTPMethodGET

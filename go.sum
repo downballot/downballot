@@ -128,8 +128,8 @@ github.com/tekkamanendless/httperror v1.0.1 h1:lKf7qlWcb6Khdxj8ZY3H2GdBX30+J1ACM
 github.com/tekkamanendless/httperror v1.0.1/go.mod h1:tYTDnOTP2Av5x3e2CUf9t671QPMIJvgS/8ErXGQ4pK0=
 github.com/tekkamanendless/restapiclient v0.1.1 h1:l9bHkjox3YY0bP7zChHxC1aPnF6TAi+sYwwndtQSBqo=
 github.com/tekkamanendless/restapiclient v0.1.1/go.mod h1:4Y2THYYgCo5KFhCgVqdyxUmQp9SutWuFdZ74Wabedho=
-github.com/tekkamanendless/restfulwrapper v0.1.5-0.20260423135728-9f42d58de800 h1:Y6xcGY8XFvvkPvsXzXZlnRvqF2LuSsPlzlpPYIA0oKo=
-github.com/tekkamanendless/restfulwrapper v0.1.5-0.20260423135728-9f42d58de800/go.mod h1:YPFh59HmOgFSoelAHbGyWmITXAJpDoFMydzHwR1ftUk=
+github.com/tekkamanendless/restfulwrapper v0.2.0 h1:jsO5UNfxHlyrz3nKDHZSx0x8wHoY53xG/VBw+FSOIF4=
+github.com/tekkamanendless/restfulwrapper v0.2.0/go.mod h1:HyEfpup75rxPzV/H6aWNyu5xmS+u55UqLRgkdjCyTxE=
 github.com/threatmate/logger v0.4.0 h1:gjtI8ur2VcO7BIRgTW+RJk3cpL8f3vp3vszdVocVqDE=
 github.com/threatmate/logger v0.4.0/go.mod h1:VytYe7NuQPR6scilIjXk18g5W5gn5PcVb+jpRESHBxA=
 github.com/threatmate/sqlite v0.1.1 h1:2tf9Nwm7auy4zi96wRLjieG7iIgoMs/KwJMdwzFnEPU=

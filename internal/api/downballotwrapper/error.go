@@ -8,7 +8,7 @@ import (
 	"github.com/downballot/downballot/downballotapi"
 	"github.com/emicklei/go-restful/v3"
 	"github.com/tekkamanendless/httperror"
-	"github.com/threatmate/restfulwrapper"
+	"github.com/tekkamanendless/restfulwrapper"
 )
 
 // Error returns a wrapped error that will be rendered to JSON using the envelope.

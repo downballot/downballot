@@ -19,7 +19,7 @@ require (
 	github.com/tekkamanendless/gormslog v0.1.1
 	github.com/tekkamanendless/httperror v1.0.1
 	github.com/tekkamanendless/restapiclient v0.1.1
-	github.com/threatmate/restfulwrapper v0.1.4
+	github.com/tekkamanendless/restfulwrapper v0.2.0
 	github.com/threatmate/sqlite v0.1.1
 	gorm.io/gorm v1.31.1
 )
@@ -64,6 +64,4 @@ require (
 	modernc.org/sqlite v1.41.0 // indirect
 )
 
-replace github.com/threatmate/restfulwrapper => github.com/tekkamanendless/restfulwrapper v0.1.5-0.20260423135728-9f42d58de800
-
-//replace github.com/threatmate/restfulwrapper => ../../tekkamanendless/restfulwrapper
+//replace github.com/tekkamanendless/restfulwrapper => ../../tekkamanendless/restfulwrapper

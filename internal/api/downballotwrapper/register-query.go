@@ -10,7 +10,7 @@ import (
 
 	"github.com/downballot/downballot/internal/reflecthelper"
 	"github.com/emicklei/go-restful/v3"
-	"github.com/threatmate/restfulwrapper"
+	"github.com/tekkamanendless/restfulwrapper"
 	"gorm.io/gorm"
 )
 
@@ -20,7 +20,6 @@ type restfulFunctionDatabaseField struct {
 	Order          []string
 }
 
-// init registers the custom "database" tags for `restfulwrapper`.
 func init() {
 	// database.query can be used to query the database for one or many things using a filter.
 	// Item *schema.Item `api:"database.query:where:id = ?,ID;order:name`

@@ -16,6 +16,10 @@ const (
 	IAMGroupDelete            permissionset.Permission = "group:delete"
 	IAMGroupRead              permissionset.Permission = "group:read"
 	IAMGroupUpdate            permissionset.Permission = "group:update"
+	IAMGroupUserCreate        permissionset.Permission = "group.user:create"
+	IAMGroupUserDelete        permissionset.Permission = "group.user:delete"
+	IAMGroupUserRead          permissionset.Permission = "group.user:read"
+	IAMGroupUserUpdate        permissionset.Permission = "group.user:update"
 	IAMFilterCreate           permissionset.Permission = "filter:create"
 	IAMFilterDelete           permissionset.Permission = "filter:delete"
 	IAMFilterRead             permissionset.Permission = "filter:read"
@@ -42,6 +46,10 @@ var Permissions = []permissionset.Permission{
 	IAMGroupDelete,
 	IAMGroupRead,
 	IAMGroupUpdate,
+	IAMGroupUserCreate,
+	IAMGroupUserDelete,
+	IAMGroupUserRead,
+	IAMGroupUserUpdate,
 	IAMFilterCreate,
 	IAMFilterDelete,
 	IAMFilterRead,

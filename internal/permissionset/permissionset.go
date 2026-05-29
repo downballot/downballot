@@ -18,19 +18,23 @@ func NewPermissionSet(permissions ...Permission) *PermissionSet {
 }
 
 // AddPermission adds a permission to the set.
-func (p *PermissionSet) AddPermission(permission Permission) {
+func (p *PermissionSet) AddPermission(permissions ...Permission) {
 	if p.permissionMap == nil {
 		p.permissionMap = map[Permission]struct{}{}
 	}
-	p.permissionMap[permission] = struct{}{}
+	for _, permission := range permissions {
+		p.permissionMap[permission] = struct{}{}
+	}
 }
 
 // RemovePermission removes a permission from the set.
-func (p *PermissionSet) RemovePermission(permission Permission) {
+func (p *PermissionSet) RemovePermission(permissions ...Permission) {
 	if p.permissionMap == nil {
 		p.permissionMap = map[Permission]struct{}{}
 	}
-	delete(p.permissionMap, permission)
+	for _, permission := range permissions {
+		delete(p.permissionMap, permission)
+	}
 }
 
 // Permissions returns the list of permissions in the set.

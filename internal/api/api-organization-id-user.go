@@ -7,7 +7,7 @@ import (
 	"github.com/downballot/downballot/downballotapi"
 	"github.com/downballot/downballot/internal/api/downballotwrapper"
 	"github.com/downballot/downballot/internal/schema"
-	"github.com/threatmate/restfulwrapper"
+	"github.com/tekkamanendless/restfulwrapper"
 	"gorm.io/gorm"
 )
 
@@ -16,6 +16,7 @@ type GetOrganizationIDUserMetadata struct {
 	downballotwrapper.RequireAuthenticatedUser
 	downballotwrapper.UseDatabase
 	hasOrganization
+	downballotwrapper.RequirePermissionOrganizationUserRead
 	_ string `api:"httppath:/organization/{organization_id}/user"`
 	_ string `api:"doc" description:"List the users."`
 	_ string `api:"notes" description:"This lists the users."`

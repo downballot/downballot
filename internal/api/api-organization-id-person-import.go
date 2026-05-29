@@ -15,7 +15,7 @@ import (
 	"github.com/downballot/downballot/internal/schema"
 	"github.com/downballot/downballot/internal/schema/sqltype"
 	"github.com/downballot/downballot/internal/stringer"
-	"github.com/threatmate/restfulwrapper"
+	"github.com/tekkamanendless/restfulwrapper"
 	"gorm.io/gorm"
 )
 

@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/WinterYukky/gorm-extra-clause-plugin/exclause"
+	"github.com/downballot/downballot/internal/iam"
+	"github.com/downballot/downballot/internal/permissionset"
 	"github.com/downballot/downballot/internal/schema"
 	"github.com/emicklei/go-restful/v3"
 	"github.com/tekkamanendless/httperror"
@@ -15,10 +17,22 @@ import (
 
 // User is a user in the system.
 type User struct {
-	ID           uint64 // The user ID.  This will be "0" if the system token is used.
-	EmailAddress string // The user's email address.  This will be "@system" if the system token is used.
-	Name         string // The user's name.  This will be "System User" if the system token is used.
-	SystemAdmin  bool   // Whether the user is a system administrator.  This is only true if the system token is used.
+	ID                             uint64                                 // The user ID.  This will be "0" if the system token is used.
+	EmailAddress                   string                                 // The user's email address.  This will be "@system" if the system token is used.
+	Name                           string                                 // The user's name.  This will be "System User" if the system token is used.
+	SystemAdmin                    bool                                   // Whether the user is a system administrator.  This is only true if the system token is used.
+	organizationToPermissionSetMap map[uint64]permissionset.PermissionSet // The user's permission set for each organization.
+}
+
+// PermissionSetForOrganization returns the user's permission set for an organization.
+func (u *User) PermissionSetForOrganization(organizationID uint64) permissionset.PermissionSet {
+	if u.SystemAdmin {
+		return *permissionset.NewPermissionSet(iam.Permissions...)
+	}
+	if permissionSet, ok := u.organizationToPermissionSetMap[organizationID]; ok {
+		return permissionSet
+	}
+	return *permissionset.NewPermissionSet()
 }
 
 // RequireAuthenticatedUser requires an authenticated user.
@@ -171,11 +185,35 @@ func (c Config) findUserInformationFromToken(db *gorm.DB, tokenString string) (*
 	}
 	user := users[0]
 
+	organizationToPermissionSetMap := map[uint64]permissionset.PermissionSet{}
+	{
+		var userOrganizationMaps []*schema.UserOrganizationMap
+		err = db.Session(&gorm.Session{}).
+			Where("user_id = ?", user.ID).
+			Find(&userOrganizationMaps).
+			Error
+		if err != nil {
+			return nil, fmt.Errorf("could not query for user group maps: %w", err)
+		}
+		for _, userOrganizationMap := range userOrganizationMaps {
+			permissionSet := permissionset.PermissionSet{}
+			if userOrganizationMap.Owner {
+				permissionSet.AddPermission(iam.Permissions...)
+			} else {
+				permissionSet.AddPermission(permissionset.Permission(iam.IAMFilterRead))
+				permissionSet.AddPermission(permissionset.Permission(iam.IAMGroupRead))
+				permissionSet.AddPermission(permissionset.Permission(iam.IAMPersonRead))
+			}
+			organizationToPermissionSetMap[userOrganizationMap.OrganizationID] = permissionSet
+		}
+	}
+
 	return &User{
-		ID:           user.ID,
-		EmailAddress: user.Username,
-		Name:         user.Name,
-		SystemAdmin:  false,
+		ID:                             user.ID,
+		EmailAddress:                   user.Username,
+		Name:                           user.Name,
+		SystemAdmin:                    false,
+		organizationToPermissionSetMap: organizationToPermissionSetMap,
 	}, nil
 }
 

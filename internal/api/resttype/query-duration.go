@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/threatmate/restfulwrapper"
+	"github.com/tekkamanendless/restfulwrapper"
 )
 
 // Duration is a duration that can be used as a query parameter and as a JSON field.

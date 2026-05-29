@@ -14,7 +14,7 @@ import (
 	"github.com/downballot/downballot/internal/api/resttype"
 	"github.com/downballot/downballot/internal/schema"
 	"github.com/downballot/downballot/internal/schema/sqltype"
-	"github.com/threatmate/restfulwrapper"
+	"github.com/tekkamanendless/restfulwrapper"
 	"gorm.io/gorm"
 )
 

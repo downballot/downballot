@@ -3,7 +3,7 @@ package resttype
 import (
 	"strings"
 
-	"github.com/threatmate/restfulwrapper"
+	"github.com/tekkamanendless/restfulwrapper"
 )
 
 // StringList is a list of strings.

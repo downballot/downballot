@@ -5,10 +5,9 @@ import (
 	"reflect"
 
 	"github.com/emicklei/go-restful/v3"
-	"github.com/threatmate/restfulwrapper"
+	"github.com/tekkamanendless/restfulwrapper"
 )
 
-// init registers the custom "database" tags for `restfulwrapper`.
 func init() {
 	// database can be used to get a handle to the database:
 	// DB *gorm.DB `api:"database"`

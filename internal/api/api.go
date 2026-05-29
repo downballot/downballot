@@ -15,7 +15,7 @@ import (
 	"github.com/go-openapi/spec"
 	"github.com/tekkamanendless/go-mailer"
 	"github.com/tekkamanendless/httperror"
-	"github.com/threatmate/restfulwrapper"
+	"github.com/tekkamanendless/restfulwrapper"
 )
 
 type API struct {

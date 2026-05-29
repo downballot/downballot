@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/threatmate/restfulwrapper"
+	"github.com/tekkamanendless/restfulwrapper"
 )
 
 // DateTime is a timestamp that can be used as a query parameter and as a JSON field.

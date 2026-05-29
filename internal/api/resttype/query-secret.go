@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/threatmate/restfulwrapper"
+	"github.com/tekkamanendless/restfulwrapper"
 )
 
 // Secret is a secret value.
