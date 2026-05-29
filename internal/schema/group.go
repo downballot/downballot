@@ -9,9 +9,9 @@ package schema
 type Group struct {
 	ID             uint64        `gorm:"column:id;primaryKey;not null;autoIncrement"`
 	OrganizationID uint64        `gorm:"column:organization_id;not null"`
-	Organization   *Organization `json:"-" gorm:"belongsTo;constraint:fk_group_organization,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:organization_id;references:id"`
+	Organization   *Organization `gorm:"belongsTo;constraint:fk_group_organization,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:organization_id;references:id" json:"-"`
 	ParentID       *uint64       `gorm:"column:parent_id"`
-	Parent         *Group        `json:"-" gorm:"belongsTo;constraint:fk_group_parent,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:parent_id;references:id"`
+	Parent         *Group        `gorm:"belongsTo;constraint:fk_group_parent,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:parent_id;references:id" json:"-"`
 	Name           string        `gorm:"column:name;size:256;type:varchar(256) collate nocase"`
 	Filter         string        `gorm:"column:filter;type:text collate nocase"`
 }

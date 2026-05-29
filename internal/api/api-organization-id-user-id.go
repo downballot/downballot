@@ -50,6 +50,8 @@ type DeleteOrganizationIDUserIDMetadata struct {
 }
 
 func (a *API) DeleteOrganizationIDUserID(ctx context.Context, meta DeleteOrganizationIDUserIDMetadata) error {
+	// TODO: Ensure that the user cannot delete herself from the organization.
+
 	err := meta.DB.Transaction(func(tx *gorm.DB) error {
 		err := tx.Session(&gorm.Session{NewDB: true}).
 			Where("user_id = ?", meta.User.ID).

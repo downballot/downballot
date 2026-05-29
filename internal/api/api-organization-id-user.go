@@ -73,6 +73,7 @@ func (a *API) PostOrganizationIDUser(ctx context.Context, meta PostOrganizationI
 	userOrganizationMapping := schema.UserOrganizationMap{
 		UserID:         user.ID,
 		OrganizationID: meta.Organization.ID,
+		Owner:          meta.Body.Owner,
 	}
 
 	output.Message = "OK"

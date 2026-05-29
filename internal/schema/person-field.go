@@ -17,7 +17,7 @@ import (
 type PersonFieldDefinition struct {
 	ID             uint64                    `gorm:"column:id;primaryKey;not null;autoIncrement"`
 	OrganizationID uint64                    `gorm:"column:organization_id;not null;uniqueIndex:idx_unique_person_field_definition,priority:1"`
-	Organization   *Organization             `json:"-" gorm:"belongsTo;constraint:fk_person_field_definition_organization,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:organization_id;references:id"`
+	Organization   *Organization             `gorm:"belongsTo;constraint:fk_person_field_definition_organization,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:organization_id;references:id" json:"-"`
 	Name           string                    `gorm:"column:name;not null;size:256;type:varchar(256) collate nocase;uniqueIndex:idx_unique_person_field_definition,priority:2"`
 	Type           PersonFieldDefinitionType `gorm:"column:type;not null;size:256;type:varchar(256) collate nocase"`
 	AllowEmpty     bool                      `gorm:"column:allow_empty;not null;default:0"`

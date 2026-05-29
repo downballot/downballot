@@ -102,6 +102,7 @@ func (a *API) PostOrganization(ctx context.Context, meta PostOrganizationMetadat
 		userOrganizationMapping := schema.UserOrganizationMap{
 			UserID:         owner.ID,
 			OrganizationID: organization.ID,
+			Owner:          true,
 		}
 		err = tx.Session(&gorm.Session{NewDB: true}).
 			Create(&userOrganizationMapping).
@@ -124,6 +125,7 @@ func (a *API) PostOrganization(ctx context.Context, meta PostOrganizationMetadat
 		userGroupMapping := schema.UserGroupMap{
 			UserID:  owner.ID,
 			GroupID: group.ID,
+			Owner:   true,
 		}
 		err = tx.Session(&gorm.Session{NewDB: true}).
 			Create(&userGroupMapping).

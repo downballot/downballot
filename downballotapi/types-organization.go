@@ -28,19 +28,23 @@ type GetOrganizationResponse struct {
 // AddUserToOrganizationRequest TODO:
 type AddUserToOrganizationRequest struct {
 	Username string `json:"username"`
+	Owner    bool   `json:"owner"`
 }
 
 // AddUserToOrganizationResponse TODO:
 type AddUserToOrganizationResponse struct {
 	UserID string `json:"user_id"`
+	Owner  bool   `json:"owner"`
 }
 
 // AddUserToGroupRequest TODO:
 type AddUserToGroupRequest struct {
 	GroupID string `json:"group_id"`
+	Owner   bool   `json:"owner"`
 }
 
 // AddUserToGroupResponse TODO:
 type AddUserToGroupResponse struct {
 	GroupID string `json:"group_id"`
+	Owner   bool   `json:"owner"`
 }

@@ -22,10 +22,10 @@ func (User) TableName() string {
 type UserGroupMap struct {
 	ID      uint64 `gorm:"column:id;primaryKey;not null;autoIncrement"`
 	UserID  uint64 `gorm:"column:user_id;not null;uniqueIndex:idx_unique_user_group,priority:1"`
-	User    *User  `json:"-" gorm:"belongsTo;constraint:fk_user_group_map_user,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:user_id;references:id"`
+	User    *User  `gorm:"belongsTo;constraint:fk_user_group_map_user,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:user_id;references:id" json:"-"`
 	GroupID uint64 `gorm:"column:group_id;not null;uniqueIndex:idx_unique_user_group,priority:2"`
-	Group   *Group `json:"-" gorm:"belongsTo;constraint:fk_user_group_map_group,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:group_id;references:id"`
-	// TODO: Attach a role of some kind?
+	Group   *Group `gorm:"belongsTo;constraint:fk_user_group_map_group,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:group_id;references:id" json:"-"`
+	Owner   bool   `gorm:"column:owner;not null;default:0"`
 }
 
 func (UserGroupMap) TableName() string {
@@ -36,10 +36,10 @@ func (UserGroupMap) TableName() string {
 type UserOrganizationMap struct {
 	ID             uint64        `gorm:"column:id;primaryKey;not null;autoIncrement"`
 	UserID         uint64        `gorm:"column:user_id;not null;uniqueIndex:idx_unique_user_organization,priority:1"`
-	User           *User         `json:"-" gorm:"belongsTo;constraint:fk_user_organization_map_user,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:user_id;references:id"`
+	User           *User         `gorm:"belongsTo;constraint:fk_user_organization_map_user,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:user_id;references:id" json:"-"`
 	OrganizationID uint64        `gorm:"column:organization_id;not null;uniqueIndex:idx_unique_user_organization,priority:2"`
-	Organization   *Organization `json:"-" gorm:"belongsTo;constraint:fk_user_organization_map_organization,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:organization_id;references:id"`
-	// TODO: Attach a role of some kind?
+	Organization   *Organization `gorm:"belongsTo;constraint:fk_user_organization_map_organization,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:organization_id;references:id" json:"-"`
+	Owner          bool          `gorm:"column:owner;not null;default:0"`
 }
 
 func (UserOrganizationMap) TableName() string {
@@ -53,7 +53,7 @@ func (UserOrganizationMap) TableName() string {
 type UserTOTP struct {
 	ID     uint64                  `gorm:"column:id;primaryKey;not null;autoIncrement"`
 	UserID uint64                  `gorm:"column:user_id;not null;uniqueIndex:idx_unique_user_totp,priority:1"`
-	User   *User                   `json:"-" gorm:"belongsTo;constraint:fk_user_totp_user,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:user_id;references:id"`
+	User   *User                   `gorm:"belongsTo;constraint:fk_user_totp_user,OnDelete:CASCADE,OnUpdate:CASCADE;foreignKey:user_id;references:id" json:"-"`
 	Secret sqltype.EncryptedString `gorm:"column:secret;not null;size:256;type:varchar(256) collate nocase"`
 }
 
