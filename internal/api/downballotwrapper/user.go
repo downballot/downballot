@@ -4,80 +4,31 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"reflect"
 	"strings"
 
 	"github.com/WinterYukky/gorm-extra-clause-plugin/exclause"
 	"github.com/downballot/downballot/internal/schema"
 	"github.com/emicklei/go-restful/v3"
 	"github.com/tekkamanendless/httperror"
-	"github.com/threatmate/restfulwrapper"
 	"gorm.io/gorm"
 )
 
+// User is a user in the system.
 type User struct {
-	ID           uint64
-	EmailAddress string
-	Name         string
-	SystemAdmin  bool
+	ID           uint64 // The user ID.  This will be "0" if the system token is used.
+	EmailAddress string // The user's email address.  This will be "@system" if the system token is used.
+	Name         string // The user's name.  This will be "System User" if the system token is used.
+	SystemAdmin  bool   // Whether the user is a system administrator.  This is only true if the system token is used.
 }
 
 // RequireAuthenticatedUser requires an authenticated user.
 type RequireAuthenticatedUser struct {
-	CurrentUser User `api:"downballot.currentUserID"`
+	CurrentUser User `api:"downballot.currentUser"`
 }
 
 // MayHaveAuthenticatedUser may have an authenticated user.
 type MayHaveAuthenticatedUser struct {
-	CurrentUser *User `api:"downballot.currentUserID"`
-}
-
-const LocalMapAuthentication = "downballot.authentication"
-
-// init registers the custom user-related tags for `restfulwrapper`.
-func init() {
-	restfulwrapper.Register("downballot.currentUserID", func(apiTagValue string, field reflect.StructField, info *restfulwrapper.RestfulFunctionInfo) (restfulwrapper.InputFieldFunction, error) {
-		requireAuthentication := false
-		switch field.Type.String() {
-		case "downballotwrapper.User":
-			requireAuthentication = true
-		case "*downballotwrapper.User":
-		default:
-			return nil, fmt.Errorf("bad type for field %s", field.Name)
-		}
-
-		if info.LocalMap[LocalMapAuthentication] == "" {
-			info.Do = append(info.Do, doRequireAuthentication(requireAuthentication))
-			info.LocalMap[LocalMapAuthentication] = "true"
-		}
-
-		return func(v reflect.Value, req *restful.Request, metadataValue reflect.Value) error {
-			ctx := req.Request.Context()
-
-			user, err := getUserFromRequest(req)
-			if err != nil {
-				slog.DebugContext(ctx, fmt.Sprintf("Could not get current user: %v", err))
-				switch v.Interface().(type) {
-				case User:
-					return restfulwrapper.NewAPIResponseError(http.StatusForbidden, "Forbidden")
-				case *User:
-					v.Set(reflect.ValueOf((*User)(nil)))
-				default:
-					return restfulwrapper.NewAPIResponseError(http.StatusInternalServerError, fmt.Sprintf("Bad type for field %s", field.Name))
-				}
-			} else {
-				switch v.Interface().(type) {
-				case User:
-					v.Set(reflect.ValueOf(*user))
-				case *User:
-					v.Set(reflect.ValueOf(user))
-				default:
-					return restfulwrapper.NewAPIResponseError(http.StatusInternalServerError, fmt.Sprintf("Bad type for field %s", field.Name))
-				}
-			}
-			return nil
-		}, nil
-	})
+	CurrentUser *User `api:"downballot.currentUser"`
 }
 
 // getUserFromRequest retrieves a user ID from the request.
