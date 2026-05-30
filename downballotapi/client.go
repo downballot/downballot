@@ -44,8 +44,7 @@ func New(path string, options ...restapiclient.Option) *Client {
 // If `responsePayload` is not nil, then the result will be decoded as JSON into this structure.
 func (c *Client) Do(ctx context.Context, method string, path string, requestPayload any, responsePayload any, options ...restapiclient.Option) error {
 	if responsePayload == nil {
-		var envelope RawEnvelope
-		err := c.client.Do(ctx, method, path, requestPayload, &envelope, options...)
+		err := c.client.Do(ctx, method, path, requestPayload, nil, options...)
 		if err != nil {
 			return fmt.Errorf("could not perform request: %w", err)
 		}
