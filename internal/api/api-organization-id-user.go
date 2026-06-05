@@ -62,14 +62,18 @@ func (a *API) PostOrganizationIDUser(ctx context.Context, meta PostOrganizationI
 		return output, restfulwrapper.NewAPIBodyError(fmt.Errorf("missing username"))
 	}
 
-	var user schema.User
+	var users []*schema.User
 	err = meta.DB.Session(&gorm.Session{}).
 		Where("username = ?", meta.Body.Username).
-		First(&user).
+		Find(&users).
 		Error
 	if err != nil {
 		return output, err
 	}
+	if len(users) == 0 {
+		return output, restfulwrapper.NewAPIBodyError(fmt.Errorf("invalid username"))
+	}
+	user := users[0]
 
 	userOrganizationMapping := schema.UserOrganizationMap{
 		UserID:         user.ID,
