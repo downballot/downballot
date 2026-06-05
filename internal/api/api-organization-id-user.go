@@ -32,6 +32,21 @@ func (a *API) GetOrganizationIDUser(ctx context.Context, meta GetOrganizationIDU
 		return output, fmt.Errorf("could not find users: %w", err)
 	}
 
+	userIDToUserOrganizationMapMap := map[uint64]schema.UserOrganizationMap{}
+	{
+		var userOrganizationMaps []schema.UserOrganizationMap
+		err = meta.DB.Session(&gorm.Session{}).
+			Where("organization_id = ?", meta.Organization.ID).
+			Find(&userOrganizationMaps).
+			Error
+		if err != nil {
+			return output, fmt.Errorf("could not find user organization maps: %w", err)
+		}
+		for _, userOrganizationMap := range userOrganizationMaps {
+			userIDToUserOrganizationMapMap[userOrganizationMap.UserID] = userOrganizationMap
+		}
+	}
+
 	output.Message = "OK"
 	output.Success = true
 	output.Data.Users = []*downballotapi.User{}
@@ -40,6 +55,7 @@ func (a *API) GetOrganizationIDUser(ctx context.Context, meta GetOrganizationIDU
 			ID:       fmt.Sprintf("%d", user.ID),
 			Name:     user.Name,
 			Username: user.Username,
+			Owner:    userIDToUserOrganizationMapMap[user.ID].Owner,
 		}
 		output.Data.Users = append(output.Data.Users, u)
 	}

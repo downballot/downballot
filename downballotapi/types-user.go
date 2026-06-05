@@ -25,4 +25,5 @@ type User struct {
 	ID       string `json:"id"`
 	Username string `json:"username"`
 	Name     string `json:"name"`
+	Owner    bool   `json:"owner"` // Whether the user is an owner of the organization.
 }

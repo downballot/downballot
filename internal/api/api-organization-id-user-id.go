@@ -12,8 +12,9 @@ import (
 )
 
 type hasUser struct {
-	UserID string      `api:"path:user_id" description:"The user ID"`
-	User   schema.User `api:"database.query:where:id = ? AND id IN (SELECT DISTINCT user_id FROM user_organization_map WHERE organization_id IN (SELECT id FROM organization)),UserID"`
+	UserID              string                     `api:"path:user_id" description:"The user ID"`
+	UserOrganizationMap schema.UserOrganizationMap `api:"database.query:where:user_id = ? AND organization_id = ?,UserID,OrganizationID"`
+	User                schema.User                `api:"database.query:where:id = ?,UserID"`
 }
 
 type GetOrganizationIDUserIDMetadata struct {
@@ -35,6 +36,7 @@ func (a *API) GetOrganizationIDUserID(ctx context.Context, meta GetOrganizationI
 		ID:       fmt.Sprintf("%d", meta.User.ID),
 		Name:     meta.User.Name,
 		Username: meta.User.Username,
+		Owner:    meta.UserOrganizationMap.Owner,
 	}
 	return output, nil
 }
@@ -103,9 +105,14 @@ func (a *API) PostOrganizationIDUserIDGroup(ctx context.Context, meta PostOrgani
 		return output, restfulwrapper.NewAPIBodyError(fmt.Errorf("invalid group_id"))
 	}
 
+	if meta.Body.Owner {
+		// TODO: Make sure that this user can add the user as an owner.
+	}
+
 	userGroupMapping := schema.UserGroupMap{
 		UserID:  meta.User.ID,
 		GroupID: group.ID,
+		Owner:   meta.Body.Owner,
 	}
 
 	output.Message = "OK"
