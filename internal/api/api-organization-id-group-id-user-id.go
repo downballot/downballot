@@ -66,6 +66,7 @@ func (a *API) PatchOrganizationIDGroupIDUserID(ctx context.Context, meta PatchOr
 
 	err = meta.DB.Transaction(func(tx *gorm.DB) error {
 		err := tx.Session(&gorm.Session{NewDB: true}).
+			Model(&schema.UserGroupMap{}).
 			Where("user_id = ?", meta.User.ID).
 			Where("group_id = ?", meta.Group.ID).
 			Updates(updateMap).
