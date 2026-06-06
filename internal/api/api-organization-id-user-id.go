@@ -71,3 +71,59 @@ func (a *API) DeleteOrganizationIDUserID(ctx context.Context, meta DeleteOrganiz
 	}
 	return nil
 }
+
+type PatchOrganizationIDUserIDMetadata struct {
+	restfulwrapper.HTTPMethodPATCH
+	downballotwrapper.RequireAuthenticatedUser
+	downballotwrapper.UseDatabase
+	hasOrganization
+	hasUser
+	_    string                                     `api:"httppath:/organization/{organization_id}/user/{user_id}"`
+	_    string                                     `api:"doc" description:"Patch the user."`
+	_    string                                     `api:"notes" description:"This patches the user."`
+	Body downballotapi.PatchOrganizationUserRequest `api:"body"`
+}
+
+func (a *API) PatchOrganizationIDUserID(ctx context.Context, meta PatchOrganizationIDUserIDMetadata) (output downballotapi.Envelope[downballotapi.PatchOrganizationUserResponse], err error) {
+	updateMap := map[string]any{}
+	if meta.Body.Owner != nil {
+		updateMap["owner"] = *meta.Body.Owner
+	}
+
+	err = meta.DB.Transaction(func(tx *gorm.DB) error {
+		err = tx.Session(&gorm.Session{NewDB: true}).
+			Model(&schema.UserOrganizationMap{}).
+			Where("user_id = ?", meta.User.ID).
+			Where("organization_id = ?", meta.Organization.ID).
+			Updates(updateMap).
+			Error
+		if err != nil {
+			return err
+		}
+
+		var userOrganizationMap schema.UserOrganizationMap
+		err = tx.Session(&gorm.Session{}).
+			Where("user_id = ?", meta.User.ID).
+			Where("organization_id = ?", meta.Organization.ID).
+			First(&userOrganizationMap).
+			Error
+		if err != nil {
+			return err
+		}
+
+		output.Message = "OK"
+		output.Success = true
+		output.Data.User = downballotapi.User{
+			ID:       fmt.Sprintf("%d", meta.User.ID),
+			Name:     meta.User.Name,
+			Username: meta.User.Username,
+			Owner:    userOrganizationMap.Owner,
+		}
+
+		return nil
+	})
+	if err != nil {
+		return output, err
+	}
+	return output, nil
+}

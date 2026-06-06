@@ -20,6 +20,16 @@ type GetUserResponse struct {
 	User *User `json:"user"`
 }
 
+// PatchOrganizationUserRequest is the request for patching an organization user.
+type PatchOrganizationUserRequest struct {
+	Owner *bool `json:"owner"`
+}
+
+// PatchOrganizationUserResponse is the response from patching an organization user.
+type PatchOrganizationUserResponse struct {
+	User User `json:"user"`
+}
+
 // User is an user.
 type User struct {
 	ID       string `json:"id"`
