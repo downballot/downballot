@@ -35,9 +35,7 @@ func (a *API) PostOrganizationIDFilter(ctx context.Context, meta PostOrganizatio
 		Filter:         meta.Body.Filter,
 	}
 
-	if meta.Body.UserID == nil {
-		filter.UserID = &meta.CurrentUser.ID
-	} else {
+	if meta.Body.UserID != nil {
 		if *meta.Body.UserID != fmt.Sprintf("%d", meta.CurrentUser.ID) {
 			return output, restfulwrapper.NewAPIBodyError(fmt.Errorf("mismatched user_id")) // TODO: Consider allowing admins to create filters for other users.
 		}
