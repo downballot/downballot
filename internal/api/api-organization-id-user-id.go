@@ -46,6 +46,7 @@ type DeleteOrganizationIDUserIDMetadata struct {
 	downballotwrapper.RequireAuthenticatedUser
 	downballotwrapper.UseDatabase
 	hasOrganization
+	downballotwrapper.RequirePermissionOrganizationUserDelete
 	hasUser
 	_ string `api:"httppath:/organization/{organization_id}/user/{user_id}"`
 	_ string `api:"doc" description:"Delete the user from the organization."`
@@ -77,6 +78,7 @@ type PatchOrganizationIDUserIDMetadata struct {
 	downballotwrapper.RequireAuthenticatedUser
 	downballotwrapper.UseDatabase
 	hasOrganization
+	downballotwrapper.RequirePermissionOrganizationUserUpdate
 	hasUser
 	_    string                                     `api:"httppath:/organization/{organization_id}/user/{user_id}"`
 	_    string                                     `api:"doc" description:"Patch the user."`

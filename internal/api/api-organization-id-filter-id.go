@@ -21,6 +21,7 @@ type DeleteOrganizationIDFilterIDMetadata struct {
 	downballotwrapper.RequireAuthenticatedUser
 	downballotwrapper.UseDatabase
 	hasOrganization
+	downballotwrapper.RequirePermissionFilterDelete
 	hasFilter
 	_ string `api:"httppath:/organization/{organization_id}/filter/{filter_id}"`
 	_ string `api:"doc" description:"Delete the filter."`
@@ -46,6 +47,7 @@ type GetOrganizationIDFilterIDMetadata struct {
 	downballotwrapper.RequireAuthenticatedUser
 	downballotwrapper.UseDatabase
 	hasOrganization
+	downballotwrapper.RequirePermissionFilterRead
 	hasFilter
 	_ string `api:"httppath:/organization/{organization_id}/filter/{filter_id}"`
 	_ string `api:"doc" description:"Get the filter."`
@@ -75,6 +77,7 @@ type PatchOrganizationIDFilterIDMetadata struct {
 	downballotwrapper.RequireAuthenticatedUser
 	downballotwrapper.UseDatabase
 	hasOrganization
+	downballotwrapper.RequirePermissionFilterUpdate
 	hasFilter
 	_    string                           `api:"httppath:/organization/{organization_id}/filter/{filter_id}"`
 	_    string                           `api:"doc" description:"Patch the filter."`

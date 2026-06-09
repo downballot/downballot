@@ -67,6 +67,7 @@ type PostOrganizationIDUserMetadata struct {
 	downballotwrapper.RequireAuthenticatedUser
 	downballotwrapper.UseDatabase
 	hasOrganization
+	downballotwrapper.RequirePermissionOrganizationUserCreate
 	_    string                                     `api:"httppath:/organization/{organization_id}/user"`
 	_    string                                     `api:"doc" description:"Add a user to an organization."`
 	_    string                                     `api:"notes" description:"This adds a user to an organization."`

@@ -16,6 +16,7 @@ type GetOrganizationIDUserIDGroupMetadata struct {
 	downballotwrapper.RequireAuthenticatedUser
 	downballotwrapper.UseDatabase
 	hasOrganization
+	downballotwrapper.RequirePermissionOrganizationUserRead
 	hasUser
 	_ string `api:"httppath:/organization/{organization_id}/user/{user_id}/group"`
 	_ string `api:"doc" description:"Get the groups the user is in."`
@@ -69,6 +70,7 @@ type PostOrganizationIDUserIDGroupMetadata struct {
 	downballotwrapper.RequireAuthenticatedUser
 	downballotwrapper.UseDatabase
 	hasOrganization
+	downballotwrapper.RequirePermissionOrganizationUserUpdate
 	hasUser
 	_    string                              `api:"httppath:/organization/{organization_id}/user/{user_id}/group"`
 	_    string                              `api:"doc" description:"Add a user to a group."`

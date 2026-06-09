@@ -17,6 +17,7 @@ type PostOrganizationIDFilterMetadata struct {
 	downballotwrapper.RequireAuthenticatedUser
 	downballotwrapper.UseDatabase
 	hasOrganization
+	downballotwrapper.RequirePermissionFilterCreate
 	_    string                            `api:"httppath:/organization/{organization_id}/filter"`
 	_    string                            `api:"doc" description:"Create a new filter."`
 	_    string                            `api:"notes" description:"This creates a new filter."`
@@ -77,6 +78,7 @@ type GetOrganizationIDFilterMetadata struct {
 	downballotwrapper.RequireAuthenticatedUser
 	downballotwrapper.UseDatabase
 	hasOrganization
+	downballotwrapper.RequirePermissionFilterRead
 	_      string  `api:"httppath:/organization/{organization_id}/filter"`
 	_      string  `api:"doc" description:"List the filters."`
 	_      string  `api:"notes" description:"This lists the filters."`
