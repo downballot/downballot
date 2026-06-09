@@ -16,6 +16,7 @@ type hasOrganization struct {
 	Organization   schema.Organization         `api:"database.query:where:id = ?,OrganizationID"`
 	_              any                         `api:"attribute:downballotwrapper.organizationID:Organization.ID"`
 	PermissionSet  permissionset.PermissionSet `api:"downballot.organizationPermissionSet"`
+	downballotwrapper.RequirePermissionOrganizationRead
 }
 type GetOrganizationIDMetadata struct {
 	restfulwrapper.HTTPMethodGET

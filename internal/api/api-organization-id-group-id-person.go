@@ -15,6 +15,8 @@ type GetOrganizationIDGroupIDPersonMetadata struct {
 	downballotwrapper.RequireAuthenticatedUser
 	downballotwrapper.UseDatabase
 	hasOrganization
+	downballotwrapper.RequirePermissionGroupRead
+	downballotwrapper.RequirePermissionPersonRead
 	hasGroup
 	_      string               `api:"httppath:/organization/{organization_id}/group/{group_id}/person"`
 	_      string               `api:"produces:application/json,text/csv"`

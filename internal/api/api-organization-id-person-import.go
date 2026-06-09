@@ -24,6 +24,7 @@ type PostOrganizationIDPersonImportMetadata struct {
 	downballotwrapper.RequireAuthenticatedUser
 	downballotwrapper.UseDatabase
 	hasOrganization
+	downballotwrapper.RequirePermissionPersonCreate
 	_        string        `api:"httppath:/organization/{organization_id}/person/import"`
 	_        string        `api:"doc" description:"Import a new set of persons."`
 	_        string        `api:"notes" description:"This imports a new set of persons."`

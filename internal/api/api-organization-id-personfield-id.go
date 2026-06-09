@@ -22,6 +22,7 @@ type GetOrganizationIDPersonFieldIDMetadata struct {
 	downballotwrapper.RequireAuthenticatedUser
 	downballotwrapper.UseDatabase
 	hasOrganization
+	downballotwrapper.RequirePermissionPersonFieldDefinitionRead
 	hasPersonField
 	_ string `api:"httppath:/organization/{organization_id}/person-field/{person_field_id}"`
 	_ string `api:"doc" description:"Get the person field."`
@@ -47,6 +48,7 @@ type PatchOrganizationIDPersonFieldIDMetadata struct {
 	downballotwrapper.RequireAuthenticatedUser
 	downballotwrapper.UseDatabase
 	hasOrganization
+	downballotwrapper.RequirePermissionPersonFieldDefinitionUpdate
 	hasPersonField
 	_    string                                `api:"httppath:/organization/{organization_id}/person-field/{person_field_id}"`
 	_    string                                `api:"doc" description:"Add a person field."`

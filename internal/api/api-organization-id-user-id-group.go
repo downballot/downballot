@@ -17,6 +17,7 @@ type GetOrganizationIDUserIDGroupMetadata struct {
 	downballotwrapper.UseDatabase
 	hasOrganization
 	downballotwrapper.RequirePermissionOrganizationUserRead
+	downballotwrapper.RequirePermissionGroupRead
 	hasUser
 	_ string `api:"httppath:/organization/{organization_id}/user/{user_id}/group"`
 	_ string `api:"doc" description:"Get the groups the user is in."`

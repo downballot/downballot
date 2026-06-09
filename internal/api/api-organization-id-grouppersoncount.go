@@ -18,6 +18,7 @@ type GetOrganizationIDGroupPersonCountMetadata struct {
 	downballotwrapper.RequireAuthenticatedUser
 	downballotwrapper.UseDatabase
 	hasOrganization
+	downballotwrapper.RequirePermissionGroupRead
 	_        string              `api:"httppath:/organization/{organization_id}/group-person-count"`
 	_        string              `api:"doc" description:"Get the person count for each group."`
 	_        string              `api:"notes" description:"This gets the person count for each group."`

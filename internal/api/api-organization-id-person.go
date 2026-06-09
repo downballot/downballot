@@ -14,6 +14,7 @@ type GetOrganizationIDPersonMetadata struct {
 	downballotwrapper.RequireAuthenticatedUser
 	downballotwrapper.UseDatabase
 	hasOrganization
+	downballotwrapper.RequirePermissionPersonRead
 	_      string               `api:"httppath:/organization/{organization_id}/person"`
 	_      string               `api:"produces:application/json,text/csv"`
 	_      string               `api:"doc" description:"List the persons."`

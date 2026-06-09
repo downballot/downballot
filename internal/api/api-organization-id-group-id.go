@@ -21,6 +21,7 @@ type DeleteOrganizationIDGroupIDMetadata struct {
 	downballotwrapper.RequireAuthenticatedUser
 	downballotwrapper.UseDatabase
 	hasOrganization
+	downballotwrapper.RequirePermissionGroupDelete
 	hasGroup
 	_ string `api:"httppath:/organization/{organization_id}/group/{group_id}"`
 	_ string `api:"doc" description:"Delete the group."`
@@ -46,6 +47,7 @@ type GetOrganizationIDGroupIDMetadata struct {
 	downballotwrapper.RequireAuthenticatedUser
 	downballotwrapper.UseDatabase
 	hasOrganization
+	downballotwrapper.RequirePermissionGroupRead
 	hasGroup
 	_ string `api:"httppath:/organization/{organization_id}/group/{group_id}"`
 	_ string `api:"doc" description:"Get the group."`
@@ -72,6 +74,7 @@ type PatchOrganizationIDGroupIDMetadata struct {
 	downballotwrapper.RequireAuthenticatedUser
 	downballotwrapper.UseDatabase
 	hasOrganization
+	downballotwrapper.RequirePermissionGroupUpdate
 	hasGroup
 	_    string                          `api:"httppath:/organization/{organization_id}/group/{group_id}"`
 	_    string                          `api:"doc" description:"Patch the group."`

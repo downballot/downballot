@@ -23,6 +23,7 @@ type GetOrganizationIDPersonIDMetadata struct {
 	downballotwrapper.RequireAuthenticatedUser
 	downballotwrapper.UseDatabase
 	hasOrganization
+	downballotwrapper.RequirePermissionPersonRead
 	VoterID string               `api:"path:voter_id"`
 	_       string               `api:"httppath:/organization/{organization_id}/person/{voter_id}"`
 	_       string               `api:"doc" description:"Get the person."`
@@ -52,6 +53,7 @@ type PatchOrganizationIDPersonIDMetadata struct {
 	downballotwrapper.RequireAuthenticatedUser
 	downballotwrapper.UseDatabase
 	hasOrganization
+	downballotwrapper.RequirePermissionPersonUpdate
 	VoterID string                           `api:"path:voter_id"`
 	_       string                           `api:"httppath:/organization/{organization_id}/person/{voter_id}"`
 	_       string                           `api:"doc" description:"Update the person."`
@@ -221,6 +223,7 @@ type GetOrganizationIDPersonIDAuditMetadata struct {
 	downballotwrapper.RequireAuthenticatedUser
 	downballotwrapper.UseDatabase
 	hasOrganization
+	downballotwrapper.RequirePermissionPersonRead
 	VoterID string               `api:"path:voter_id"`
 	_       string               `api:"httppath:/organization/{organization_id}/person/{voter_id}/audit"`
 	_       string               `api:"doc" description:"Get the person audit."`
