@@ -40,10 +40,9 @@ func main() {
 			writer.WriteString(string(permission))
 			writer.WriteString("\"`\n")
 			writer.WriteString("}\n")
-			writer.WriteString("\n")
 		}
 
-		contents = []byte(strings.TrimSpace(writer.String()))
+		contents = []byte(writer.String())
 	}
 
 	err := os.WriteFile(args.Output, contents, 0644)
