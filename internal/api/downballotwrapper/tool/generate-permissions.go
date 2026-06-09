@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log/slog"
 	"os"
 	"strings"
@@ -20,26 +19,36 @@ func main() {
 	var args Args
 	arg.MustParse(&args)
 
-	file, err := os.Create(args.Output)
-	if err != nil {
-		slog.Error("Failed to create output file", "err", err)
-		os.Exit(1)
+	var contents []byte
+	{
+		var writer strings.Builder
+
+		writer.WriteString("package downballotwrapper\n")
+		writer.WriteString("\n")
+		for _, permission := range iam.Permissions {
+			name := string(permission)
+			name = strings.ReplaceAll(name, "-", " ")
+			name = strings.ReplaceAll(name, ".", " ")
+			name = strings.ReplaceAll(name, ":", " ")
+			name = cases.Title(language.English).String(name)
+			name = strings.ReplaceAll(name, " ", "")
+
+			writer.WriteString("type RequirePermission")
+			writer.WriteString(name)
+			writer.WriteString(" struct {\n")
+			writer.WriteString("	_ string `api:\"downballot.permission:")
+			writer.WriteString(string(permission))
+			writer.WriteString("\"`\n")
+			writer.WriteString("}\n")
+			writer.WriteString("\n")
+		}
+
+		contents = []byte(strings.TrimSpace(writer.String()))
 	}
-	defer file.Close()
 
-	fmt.Fprintln(file, "package downballotwrapper")
-	fmt.Fprintln(file, "")
-	for _, permission := range iam.Permissions {
-		name := string(permission)
-		name = strings.ReplaceAll(name, "-", " ")
-		name = strings.ReplaceAll(name, ".", " ")
-		name = strings.ReplaceAll(name, ":", " ")
-		name = cases.Title(language.English).String(name)
-		name = strings.ReplaceAll(name, " ", "")
-
-		fmt.Fprintln(file, "type RequirePermission"+name, "struct {")
-		fmt.Fprintln(file, "	_ string `api:\"downballot.permission:"+permission+"\"`")
-		fmt.Fprintln(file, "}")
-		fmt.Fprintln(file, "")
+	err := os.WriteFile(args.Output, contents, 0644)
+	if err != nil {
+		slog.Error("Failed to write output file", "err", err)
+		os.Exit(1)
 	}
 }

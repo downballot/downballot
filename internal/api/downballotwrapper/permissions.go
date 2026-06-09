@@ -111,4 +111,3 @@ type RequirePermissionPersonFieldDefinitionRead struct {
 type RequirePermissionPersonFieldDefinitionUpdate struct {
 	_ string `api:"downballot.permission:person-field-definition:update"`
 }
-
