@@ -1,6 +1,6 @@
 package iam
 
-import "github.com/downballot/downballot/internal/permissionset"
+import "github.com/downballot/downballot/permissionset"
 
 // IAM constants
 const (

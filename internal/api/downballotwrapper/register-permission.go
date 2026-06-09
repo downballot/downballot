@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"reflect"
 
-	"github.com/downballot/downballot/internal/permissionset"
+	"github.com/downballot/downballot/permissionset"
 	"github.com/emicklei/go-restful/v3"
 	"github.com/tekkamanendless/restfulwrapper"
 )

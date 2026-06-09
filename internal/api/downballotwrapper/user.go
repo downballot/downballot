@@ -7,9 +7,9 @@ import (
 	"strings"
 
 	"github.com/WinterYukky/gorm-extra-clause-plugin/exclause"
-	"github.com/downballot/downballot/internal/iam"
-	"github.com/downballot/downballot/internal/permissionset"
+	"github.com/downballot/downballot/iam"
 	"github.com/downballot/downballot/internal/schema"
+	"github.com/downballot/downballot/permissionset"
 	"github.com/emicklei/go-restful/v3"
 	"github.com/tekkamanendless/httperror"
 	"gorm.io/gorm"

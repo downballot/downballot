@@ -6,8 +6,8 @@ import (
 
 	"github.com/downballot/downballot/downballotapi"
 	"github.com/downballot/downballot/internal/api/downballotwrapper"
-	"github.com/downballot/downballot/internal/permissionset"
 	"github.com/downballot/downballot/internal/schema"
+	"github.com/downballot/downballot/permissionset"
 	"github.com/tekkamanendless/restfulwrapper"
 )
 
