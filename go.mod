@@ -5,6 +5,7 @@ go 1.26.2
 require (
 	github.com/DmitriyVTitov/size v1.1.0
 	github.com/WinterYukky/gorm-extra-clause-plugin v0.4.0
+	github.com/alexflint/go-arg v1.6.1
 	github.com/dgraph-io/ristretto v0.1.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/emicklei/go-restful-openapi/v2 v2.5.1
@@ -21,12 +22,14 @@ require (
 	github.com/tekkamanendless/restapiclient v0.1.1
 	github.com/tekkamanendless/restfulwrapper v0.2.0
 	github.com/threatmate/sqlite v0.1.1
+	golang.org/x/text v0.37.0
 	gorm.io/gorm v1.31.1
 )
 
 require (
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
+	github.com/alexflint/go-scalar v1.2.0 // indirect
 	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
@@ -55,7 +58,6 @@ require (
 	golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b // indirect
 	golang.org/x/net v0.55.0 // indirect
 	golang.org/x/sys v0.45.0 // indirect
-	golang.org/x/text v0.37.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	modernc.org/libc v1.66.10 // indirect

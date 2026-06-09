@@ -28,5 +28,6 @@ swagger: bin
 
 .PHONY: run
 run:
+	go generate ./...
 	go run ./cmd/web/...
 
