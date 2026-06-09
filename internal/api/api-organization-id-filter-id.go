@@ -82,7 +82,7 @@ type PatchOrganizationIDFilterIDMetadata struct {
 	Body downballotapi.PatchFilterRequest `api:"body"`
 }
 
-func (a *API) PatchOrganizationIDFilterID(ctx context.Context, meta PatchOrganizationIDFilterIDMetadata) (output downballotapi.Envelope[downballotapi.GetFilterResponse], err error) {
+func (a *API) PatchOrganizationIDFilterID(ctx context.Context, meta PatchOrganizationIDFilterIDMetadata) (output downballotapi.Envelope[downballotapi.PatchFilterResponse], err error) {
 	updateMap := map[string]any{}
 	if meta.Body.Name != nil {
 		updateMap["name"] = *meta.Body.Name
@@ -116,7 +116,7 @@ func (a *API) PatchOrganizationIDFilterID(ctx context.Context, meta PatchOrganiz
 
 		output.Message = "OK"
 		output.Success = true
-		output.Data.Filter = &downballotapi.Filter{
+		output.Data.Filter = downballotapi.Filter{
 			ID:          fmt.Sprintf("%d", filter.ID),
 			Name:        filter.Name,
 			Description: filter.Description,

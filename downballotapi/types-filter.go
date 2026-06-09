@@ -39,4 +39,6 @@ type PatchFilterRequest struct {
 }
 
 // PatchFilterResponse is the response from patching the group.
-type PatchFilterResponse Filter
+type PatchFilterResponse struct {
+	Filter Filter `json:"filter"`
+}
