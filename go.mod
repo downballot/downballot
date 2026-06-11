@@ -21,7 +21,7 @@ require (
 	github.com/tekkamanendless/httperror v1.0.1
 	github.com/tekkamanendless/restapiclient v0.1.1
 	github.com/tekkamanendless/restfulwrapper v0.2.0
-	github.com/threatmate/sqlite v0.1.1
+	github.com/tekkamanendless/sqlite v0.1.0
 	golang.org/x/text v0.37.0
 	gorm.io/gorm v1.31.1
 )

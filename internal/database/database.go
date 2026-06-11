@@ -7,8 +7,8 @@ import (
 
 	gormextraclauseplugin "github.com/WinterYukky/gorm-extra-clause-plugin"
 	"github.com/tekkamanendless/gormslog"
-	_ "github.com/threatmate/sqlite"
-	"github.com/threatmate/sqlite/driver/gorm/sqlite"
+	_ "github.com/tekkamanendless/sqlite"
+	"github.com/tekkamanendless/sqlite/driver/gorm/sqlite"
 	"gorm.io/gorm"
 )
 
