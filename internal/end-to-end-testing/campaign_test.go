@@ -48,12 +48,12 @@ func TestCampaign(t *testing.T) {
 	user2Id := ""
 	var user2Client *downballotapi.Client
 
-	group1Name := "Stenning Woods"
-	group1Filter := "residential_address_development = 'Stenning Woods'"
+	group1Name := "Monkey family"
+	group1Filter := "name_last = 'Monkey'"
 	group1Id := ""
 
-	group2Name := "Corner Ketch"
-	group2Filter := "residential_address_development = 'Corner Ketch'"
+	group2Name := "Navy dogs"
+	group2Filter := "political_party = 'Navy'"
 	group2Id := ""
 
 	t.Log("Register the admin user.")
@@ -325,7 +325,7 @@ func TestCampaign(t *testing.T) {
 
 	t.Log("Import the voter file as the admin user.")
 	{
-		input, err := os.ReadFile("../../test/de_voter_reg.2026.small.csv")
+		input, err := os.ReadFile("testdata/voterfile.csv")
 		require.NoError(t, err)
 		var output downballotapi.ImportPersonResponse
 		err = adminClient.Do(ctx, http.MethodPost, "/api/v1/organization/"+organizationId+"/person/import", restapiclient.RawBytes(input), &output, restapiclient.OptionHeader("Content-Type", "text/csv"))
@@ -333,12 +333,13 @@ func TestCampaign(t *testing.T) {
 		t.Logf("Persons: %v", output.Records)
 	}
 
-	t.Log("List all persons named Charls with 'whit' in the last name as the admin user.")
+	t.Log("List all persons named Garp with 'monk' in the last name as the admin user.")
 	{
 		var output downballotapi.ListPersonsResponse
-		err := adminClient.Do(ctx, http.MethodGet, "/api/v1/organization/"+organizationId+"/person?filter=name_first+=+charles+AND+name_last+~+'*whit*'", nil, &output)
+		err := adminClient.Do(ctx, http.MethodGet, "/api/v1/organization/"+organizationId+"/person?filter=name_first+=+garp+AND+name_last+~+'*monk*'", nil, &output)
 		require.NoError(t, err)
 		t.Logf("Persons: %v", output.Persons)
+		assert.Len(t, output.Persons, 1)
 	}
 
 	t.Logf("Create group 1 %q matching: %q", group1Name, group2Filter)
@@ -403,6 +404,21 @@ func TestCampaign(t *testing.T) {
 		require.NoError(t, err)
 
 		t.Logf("Persons: %v", output.Persons)
+		assert.Len(t, output.Persons, 11)
+		names := []string{}
+		for _, person := range output.Persons {
+			names = append(names, person.Fields["name"])
+		}
+		assert.Contains(t, names, "LUFFY D MONKEY")
+		assert.Contains(t, names, "ZORO RORONOA")
+		assert.Contains(t, names, "NAMI BELLMERE")
+		assert.Contains(t, names, "USOPP MONTBLANC")
+		assert.Contains(t, names, "TONY TONY CHOPPER")
+		assert.Contains(t, names, "ROBIN NICO")
+		assert.Contains(t, names, "CUTTY FLAM")
+		assert.Contains(t, names, "GARP D MONKEY")
+		assert.Contains(t, names, "ACE D PORTGAS")
+		assert.Contains(t, names, "SENGOKU BUDDHA")
 	}
 
 	t.Log("List the persons as user 1.")
@@ -412,6 +428,13 @@ func TestCampaign(t *testing.T) {
 		require.NoError(t, err)
 
 		t.Logf("Persons: %v", output.Persons)
+		assert.Len(t, output.Persons, 2)
+		names := []string{}
+		for _, person := range output.Persons {
+			names = append(names, person.Fields["name"])
+		}
+		assert.Contains(t, names, "LUFFY D MONKEY")
+		assert.Contains(t, names, "GARP D MONKEY")
 	}
 
 	t.Log("List the persons as user 2.")
@@ -421,5 +444,13 @@ func TestCampaign(t *testing.T) {
 		require.NoError(t, err)
 
 		t.Logf("Persons: %v", output.Persons)
+		assert.Len(t, output.Persons, 3)
+		names := []string{}
+		for _, person := range output.Persons {
+			names = append(names, person.Fields["name"])
+		}
+		assert.Contains(t, names, "LUFFY D MONKEY")
+		assert.Contains(t, names, "GARP D MONKEY")
+		assert.Contains(t, names, "SENGOKU BUDDHA")
 	}
 }
