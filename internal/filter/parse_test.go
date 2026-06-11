@@ -1,0 +1,166 @@
+package filter
+
+import (
+	"context"
+	"fmt"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestParseQuery(t *testing.T) {
+	ctx := context.Background()
+
+	rows := []struct {
+		description string
+		query       string
+		success     bool
+		canonical   string
+	}{
+		{
+			description: "Empty",
+			query:       "",
+			success:     true,
+			canonical:   "",
+		},
+		{
+			description: "Simple condition",
+			query:       "key1 = value1",
+			success:     true,
+			canonical:   "key1 = value1",
+		},
+		{
+			description: "Trivial quotes",
+			query:       "'key1' = 'value1'",
+			success:     true,
+			canonical:   "key1 = value1",
+		},
+		{
+			description: "Quoted condition",
+			query:       "'key 1' = 'value 1'",
+			success:     true,
+			canonical:   "'key 1' = 'value 1'",
+		},
+		{
+			description: "Quoted parens",
+			query:       "key1 = 'value (((1'",
+			success:     true,
+			canonical:   "key1 = 'value (((1'",
+		},
+		{
+			description: "Bogus operation",
+			query:       "key1 * value1",
+			success:     false,
+		},
+		{
+			description: "Unterminated quote",
+			query:       "key1 = 'value1",
+			success:     false,
+		},
+		{
+			description: "Multiple AND conditions",
+			query:       "key1 = value1 and key2 = value2",
+			success:     true,
+			canonical:   "(key1 = value1 AND key2 = value2)",
+		},
+		{
+			description: "Multiple AND conditions with extra parens",
+			query:       "(((key1 = value1 and key2 = value2)))",
+			success:     true,
+			canonical:   "(key1 = value1 AND key2 = value2)",
+		},
+		{
+			description: "Multiple AND conditions with quotes",
+			query:       "key1 = 'value \"1\"' and 'key 2' = \"value '2'\"",
+			success:     true,
+			canonical:   "(key1 = 'value \"1\"' AND 'key 2' = 'value \\'2\\'')",
+		},
+		{
+			description: "Extra leading AND",
+			query:       "and key1 = value1 and key2 = value2",
+			success:     false,
+		},
+		{
+			description: "Multiple OR conditions",
+			query:       "key1 = value1 or key2 = value2",
+			success:     true,
+			canonical:   "(key1 = value1 OR key2 = value2)",
+		},
+		{
+			description: "Extra leading OR",
+			query:       "or key1 = value1 or key2 = value2",
+			success:     false,
+		},
+		{
+			description: "AND OR grouping",
+			query:       "key1 = value1 and key2 = value2 or key3 = value3",
+			success:     true,
+			canonical:   "((key1 = value1 AND key2 = value2) OR key3 = value3)",
+		},
+		{
+			description: "AND OR grouping",
+			query:       "key1 = value1 and key2 = value2 or key3 = value3 and key4 = value4",
+			success:     true,
+			canonical:   "((key1 = value1 AND key2 = value2) OR (key3 = value3 AND key4 = value4))",
+		},
+		{
+			description: "Real world test grouping 1",
+			query:       "((((district_representative = 'RD23') AND (political_party = 'DEMOCRATIC') AND ((political_party = 'DEMOCRATIC') AND (voting_history.pr2024 = yes OR voting_history.pr2022 = yes)))))",
+			success:     true,
+			canonical:   "(district_representative = RD23 AND political_party = DEMOCRATIC AND (political_party = DEMOCRATIC AND (voting_history.pr2024 = yes OR voting_history.pr2022 = yes)))",
+		},
+		{
+			description: "Real world test grouping 2",
+			query:       "((((district_representative = 'RD23'))) OR (((district_representative = 'RD23') AND (political_party = 'DEMOCRATIC'))))",
+			success:     true,
+			canonical:   "(district_representative = RD23 OR (district_representative = RD23 AND political_party = DEMOCRATIC))",
+		},
+		{
+			description: "Mismatched open paren",
+			query:       "key1 = value1 and (key2 = value2",
+			success:     false,
+		},
+		{
+			description: "Mismatched close paren",
+			query:       "key1 = value1 and )key2 = value2",
+			success:     false,
+		},
+		{
+			description: "is null",
+			query:       "key1 is null",
+			success:     true,
+			canonical:   "key1 is null",
+		},
+		{
+			description: "is bogus",
+			query:       "key1 is bogus",
+			success:     false,
+		},
+		{
+			description: "is not null",
+			query:       "key1 is not null",
+			success:     true,
+			canonical:   "key1 is not null",
+		},
+		{
+			description: "is not bogus",
+			query:       "key1 is not bogus",
+			success:     false,
+		},
+	}
+	for rowIndex, row := range rows {
+		t.Run(fmt.Sprintf("%d/%s", rowIndex, row.description), func(t *testing.T) {
+			output, err := Parse(ctx, row.query)
+			if !row.success {
+				require.NotNil(t, err, "err is nil")
+				require.Nil(t, output, "output is not nil")
+			} else {
+				require.Nil(t, err, "err is not nil")
+				require.NotNil(t, output, "output is nil")
+
+				assert.Equal(t, row.canonical, output.String(), "canonical is incorrect")
+			}
+		})
+	}
+}
