@@ -4,7 +4,6 @@ package downballotapi
 type RegisterUserRequest struct {
 	Name     string `json:"name"`
 	Username string `json:"username"`
-	Password string `json:"password"`
 }
 
 // RegisterUserResponse is the response from registering a user

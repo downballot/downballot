@@ -3,6 +3,7 @@ package endtoendtesting
 import (
 	"net/http"
 	"os"
+	"regexp"
 	"testing"
 
 	"github.com/downballot/downballot/downballotapi"
@@ -11,6 +12,7 @@ import (
 	"github.com/downballot/downballot/internal/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/tekkamanendless/go-mailer"
 	"github.com/tekkamanendless/restapiclient"
 )
 
@@ -18,6 +20,7 @@ func TestCampaign(t *testing.T) {
 	testutils.Setup(t)
 
 	ctx := t.Context()
+	ctx = mailer.WithDummyMode(ctx)
 
 	application := applicationtest.New(t, ctx)
 	t.Cleanup(func() {
@@ -28,7 +31,6 @@ func TestCampaign(t *testing.T) {
 
 	adminName := "John Smith"
 	adminUsername := "jsmith@example.com"
-	adminPassword := "abc123"
 	adminUserId := ""
 	var adminClient *downballotapi.Client
 
@@ -38,13 +40,11 @@ func TestCampaign(t *testing.T) {
 
 	user1Name := "User One"
 	user1Username := "user1@example.com"
-	user1Password := "abc123"
 	user1Id := ""
 	var user1Client *downballotapi.Client
 
 	user2Name := "User Two"
 	user2Username := "user2@example.com"
-	user2Password := "abc123"
 	user2Id := ""
 	var user2Client *downballotapi.Client
 
@@ -61,7 +61,6 @@ func TestCampaign(t *testing.T) {
 		input := downballotapi.RegisterUserRequest{
 			Name:     adminName,
 			Username: adminUsername,
-			Password: adminPassword,
 		}
 		var output downballotapi.RegisterUserResponse
 		err := application.UnauthenticatedClient().Do(ctx, http.MethodPost, "/api/v1/user", input, &output)
@@ -75,7 +74,6 @@ func TestCampaign(t *testing.T) {
 		input := downballotapi.RegisterUserRequest{
 			Name:     user1Name,
 			Username: user1Username,
-			Password: user1Password,
 		}
 		var output downballotapi.RegisterUserResponse
 		err := application.UnauthenticatedClient().Do(ctx, http.MethodPost, "/api/v1/user", input, &output)
@@ -89,7 +87,6 @@ func TestCampaign(t *testing.T) {
 		input := downballotapi.RegisterUserRequest{
 			Name:     user2Name,
 			Username: user2Username,
-			Password: user2Password,
 		}
 		var output downballotapi.RegisterUserResponse
 		err := application.UnauthenticatedClient().Do(ctx, http.MethodPost, "/api/v1/user", input, &output)
@@ -101,7 +98,24 @@ func TestCampaign(t *testing.T) {
 	t.Log("Log in as the admin user.")
 	{
 		adminClient = application.UnauthenticatedClient()
-		err := adminClient.Login(ctx, &downballotapi.LoginRequest{
+
+		err := adminClient.Do(ctx, http.MethodPost, "/api/v1/authentication/email", downballotapi.EmailRequest{
+			Email: adminUsername,
+		}, nil)
+		require.NoError(t, err)
+
+		passwordRegexp := regexp.MustCompile(`(?m)^\s*(\d{6})`)
+
+		message := mailer.Dummy().LastMessageInInbox(application.Config().SendGridAPIKey, adminUsername)
+		require.NotNil(t, message)
+		t.Logf("Message: %s", message.BodyPlainText)
+		require.Equal(t, adminUsername, message.To.Address)
+		require.Equal(t, "Your Downballot one-time password", message.Subject)
+		matches := passwordRegexp.FindStringSubmatch(message.BodyPlainText)
+		require.Len(t, matches, 2)
+		adminPassword := matches[1]
+
+		err = adminClient.Login(ctx, &downballotapi.LoginRequest{
 			Username: adminUsername,
 			Password: adminPassword,
 		})
@@ -111,7 +125,24 @@ func TestCampaign(t *testing.T) {
 	t.Log("Log in as user 1.")
 	{
 		user1Client = application.UnauthenticatedClient()
-		err := user1Client.Login(ctx, &downballotapi.LoginRequest{
+
+		err := user1Client.Do(ctx, http.MethodPost, "/api/v1/authentication/email", downballotapi.EmailRequest{
+			Email: user1Username,
+		}, nil)
+		require.NoError(t, err)
+
+		passwordRegexp := regexp.MustCompile(`(?m)^\s*(\d{6})`)
+
+		message := mailer.Dummy().LastMessageInInbox(application.Config().SendGridAPIKey, user1Username)
+		require.NotNil(t, message)
+		t.Logf("Message: %s", message.BodyPlainText)
+		require.Equal(t, user1Username, message.To.Address)
+		require.Equal(t, "Your Downballot one-time password", message.Subject)
+		matches := passwordRegexp.FindStringSubmatch(message.BodyPlainText)
+		require.Len(t, matches, 2)
+		user1Password := matches[1]
+
+		err = user1Client.Login(ctx, &downballotapi.LoginRequest{
 			Username: user1Username,
 			Password: user1Password,
 		})
@@ -121,7 +152,24 @@ func TestCampaign(t *testing.T) {
 	t.Log("Log in as user 2.")
 	{
 		user2Client = application.UnauthenticatedClient()
-		err := user2Client.Login(ctx, &downballotapi.LoginRequest{
+
+		err := user2Client.Do(ctx, http.MethodPost, "/api/v1/authentication/email", downballotapi.EmailRequest{
+			Email: user2Username,
+		}, nil)
+		require.NoError(t, err)
+
+		passwordRegexp := regexp.MustCompile(`(?m)^\s*(\d{6})`)
+
+		message := mailer.Dummy().LastMessageInInbox(application.Config().SendGridAPIKey, user2Username)
+		require.NotNil(t, message)
+		t.Logf("Message: %s", message.BodyPlainText)
+		require.Equal(t, user2Username, message.To.Address)
+		require.Equal(t, "Your Downballot one-time password", message.Subject)
+		matches := passwordRegexp.FindStringSubmatch(message.BodyPlainText)
+		require.Len(t, matches, 2)
+		user2Password := matches[1]
+
+		err = user2Client.Login(ctx, &downballotapi.LoginRequest{
 			Username: user2Username,
 			Password: user2Password,
 		})

@@ -202,6 +202,7 @@ func (c Config) findUserInformationFromToken(db *gorm.DB, tokenString string) (*
 			} else {
 				permissionSet.AddPermission(permissionset.Permission(iam.IAMFilterRead))
 				permissionSet.AddPermission(permissionset.Permission(iam.IAMGroupRead))
+				permissionSet.AddPermission(permissionset.Permission(iam.IAMOrganizationRead))
 				permissionSet.AddPermission(permissionset.Permission(iam.IAMPersonRead))
 				permissionSet.AddPermission(permissionset.Permission(iam.IAMPersonFieldDefinitionRead))
 			}

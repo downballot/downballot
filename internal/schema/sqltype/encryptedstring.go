@@ -14,6 +14,11 @@ import (
 // encryptionKey is the global encryption key.
 var encryptionKey string
 
+// GetEncryptionKey returns the encryption key.
+func GetEncryptionKey() string {
+	return encryptionKey
+}
+
 // SetEncryptionKey sets the encryption key.
 // This should be called only one time, as soon as the encryption key is known.
 //

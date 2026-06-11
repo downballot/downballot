@@ -14,7 +14,7 @@ require (
 	github.com/mattn/go-isatty v0.0.22
 	github.com/pquerna/otp v1.5.0
 	github.com/stretchr/testify v1.11.1
-	github.com/tekkamanendless/go-mailer v0.1.0
+	github.com/tekkamanendless/go-mailer v0.1.1
 	github.com/tekkamanendless/gormslog v0.1.1
 	github.com/tekkamanendless/httperror v1.0.1
 	github.com/tekkamanendless/restapiclient v0.1.1

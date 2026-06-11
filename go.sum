@@ -109,8 +109,8 @@ github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UV
 github.com/stretchr/testify v1.6.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=
 github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
-github.com/tekkamanendless/go-mailer v0.1.0 h1:z42D3ojKEzwdgcmBynozERuXzoVDRpsg15nfw/Fpuhg=
-github.com/tekkamanendless/go-mailer v0.1.0/go.mod h1:sETWaGOyPxyi/b4lePBbrbWfuQCAd0wzxk9fa9g+GH4=
+github.com/tekkamanendless/go-mailer v0.1.1 h1:HibWGwCTZduq5W15/StzOExRrImB29KSmDp4NgDB9Rk=
+github.com/tekkamanendless/go-mailer v0.1.1/go.mod h1:sETWaGOyPxyi/b4lePBbrbWfuQCAd0wzxk9fa9g+GH4=
 github.com/tekkamanendless/gormslog v0.1.1 h1:dxZxgp8eAEjYmsZkfkiwAeQagjsADM+ULXYwb+QzNgk=
 github.com/tekkamanendless/gormslog v0.1.1/go.mod h1:WgcjRHJx2jt10rbUM8iBRuF+k1raKK+JK1uRtCJ/nuE=
 github.com/tekkamanendless/httperror v1.0.1 h1:lKf7qlWcb6Khdxj8ZY3H2GdBX30+J1ACMNgb8jnNr8Y=

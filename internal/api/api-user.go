@@ -29,9 +29,6 @@ func (a *API) PostUser(ctx context.Context, meta PostUserMetadata) (output downb
 	if meta.Body.Username == "" {
 		return output, restfulwrapper.NewAPIBodyError(fmt.Errorf("missing username"))
 	}
-	if meta.Body.Password == "" {
-		return output, restfulwrapper.NewAPIBodyError(fmt.Errorf("missing password"))
-	}
 
 	{
 		var testUsers []*schema.User
