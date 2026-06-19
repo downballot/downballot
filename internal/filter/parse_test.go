@@ -130,7 +130,7 @@ func TestParseQuery(t *testing.T) {
 			description: "is null",
 			query:       "key1 is null",
 			success:     true,
-			canonical:   "key1 is null",
+			canonical:   "key1 IS NULL",
 		},
 		{
 			description: "is bogus",
@@ -141,7 +141,7 @@ func TestParseQuery(t *testing.T) {
 			description: "is not null",
 			query:       "key1 is not null",
 			success:     true,
-			canonical:   "key1 is not null",
+			canonical:   "key1 IS NOT NULL",
 		},
 		{
 			description: "is not bogus",

@@ -28,48 +28,48 @@ func buildPersonQuery(ctx context.Context, db *gorm.DB, organizationID uint64, g
 
 	fieldInfoMap := map[string]*FieldInfo{} // This maps a field name the table info for it.
 
+	// registerFieldTableIfNecessary registers a field table if it is not already registered.
+	//
+	// The field is assumed to be required, but if any request says that it's *not* required, then
+	// the InnerJoin field will be set to false.
+	registerFieldTableIfNecessary := func(fieldName string, required bool) error {
+		personFieldDefinition := fieldDefinitionByNameMap[fieldName]
+		if personFieldDefinition == nil {
+			return fmt.Errorf("unknown field: %s", fieldName)
+		}
+
+		var fieldInfo *FieldInfo
+		if fieldInfoMap[fieldName] != nil {
+			fieldInfo = fieldInfoMap[fieldName]
+		} else {
+			fieldInfo = &FieldInfo{
+				FieldName:               fieldName,
+				InnerJoin:               true,
+				TableName:               "person_field_join" + fmt.Sprintf("%d", len(fieldInfoMap)+1),
+				PersonFieldDefinitionID: personFieldDefinition.ID,
+			}
+			fieldInfoMap[fieldName] = fieldInfo
+		}
+
+		if !required {
+			fieldInfo.InnerJoin = false
+		}
+		return nil
+	}
+
 	var recursiveBuildInfo func(clause filter.Clause) error
 	recursiveBuildInfo = func(clause filter.Clause) error {
 		slog.DebugContext(ctx, fmt.Sprintf("recursiveBuildInfo: clause: %+v", clause))
 		switch typedClause := clause.(type) {
 		case *filter.ClauseCondition:
-			slog.DebugContext(ctx, fmt.Sprintf("recursiveBuildInfo: condition: %+v", typedClause))
+			slog.DebugContext(ctx, fmt.Sprintf("recursiveBuildInfo: ClauseCondition: %+v", typedClause))
 
-			personFieldDefinition := fieldDefinitionByNameMap[typedClause.Name]
-			if personFieldDefinition == nil {
-				return fmt.Errorf("unknown field: %s", typedClause.Name)
-			}
-
-			var fieldInfo *FieldInfo
-			if fieldInfoMap[typedClause.Name] != nil {
-				fieldInfo = fieldInfoMap[typedClause.Name]
-			} else {
-				fieldInfo = &FieldInfo{
-					FieldName:               typedClause.Name,
-					InnerJoin:               true,
-					TableName:               "person_field_join" + fmt.Sprintf("%d", len(fieldInfoMap)+1),
-					PersonFieldDefinitionID: personFieldDefinition.ID,
-				}
-				fieldInfoMap[typedClause.Name] = fieldInfo
-			}
-
+			innerJoin := true
 			switch typedClause.Operation {
 			case filter.OperationEquals:
 				// Inner join is fine.
 			case filter.OperationNotEquals:
-				fieldInfo.InnerJoin = false
-			case filter.OperationIs:
-				if typedClause.Value == "null" {
-					fieldInfo.InnerJoin = false
-				} else {
-					return fmt.Errorf("invalid value for is operation: %s", typedClause.Value)
-				}
-			case filter.OperationIsNot:
-				if typedClause.Value == "null" {
-					// Inner join is fine.
-				} else {
-					return fmt.Errorf("invalid value for is not operation: %s", typedClause.Value)
-				}
+				innerJoin = false
 			case filter.OperationGreaterThan:
 				// Inner join is fine.
 			case filter.OperationGreaterThanOrEqual:
@@ -82,6 +82,25 @@ func buildPersonQuery(ctx context.Context, db *gorm.DB, organizationID uint64, g
 				// Inner join is fine.
 			default:
 				return fmt.Errorf("unknown operation: %s", typedClause.Operation)
+			}
+
+			err := registerFieldTableIfNecessary(typedClause.Name, innerJoin)
+			if err != nil {
+				return err
+			}
+		case *filter.ClauseIsNull:
+			slog.DebugContext(ctx, fmt.Sprintf("recursiveBuildInfo: ClauseIsNull: %+v", typedClause))
+
+			err := registerFieldTableIfNecessary(typedClause.Name, false)
+			if err != nil {
+				return err
+			}
+		case *filter.ClauseIsNotNull:
+			slog.DebugContext(ctx, fmt.Sprintf("recursiveBuildInfo: ClauseIsNotNull: %+v", typedClause))
+
+			err := registerFieldTableIfNecessary(typedClause.Name, true)
+			if err != nil {
+				return err
 			}
 		case *filter.ClauseGroup:
 			slog.DebugContext(ctx, fmt.Sprintf("recursiveBuildInfo: group: %+v", typedClause))
@@ -128,18 +147,6 @@ func buildPersonQuery(ctx context.Context, db *gorm.DB, organizationID uint64, g
 				groupQuery = groupQuery.Where(fieldInfo.TableName+".value = ?", typedClause.Value)
 			case filter.OperationNotEquals:
 				groupQuery = groupQuery.Where(fieldInfo.TableName+".value IS NULL OR "+fieldInfo.TableName+".value != ?", typedClause.Value)
-			case filter.OperationIs:
-				if typedClause.Value == "null" {
-					groupQuery = groupQuery.Where(fieldInfo.TableName + ".value IS NULL")
-				} else {
-					return fmt.Errorf("invalid value for is operation: %s", typedClause.Value)
-				}
-			case filter.OperationIsNot:
-				if typedClause.Value == "null" {
-					groupQuery = groupQuery.Where(fieldInfo.TableName + ".value IS NOT NULL")
-				} else {
-					return fmt.Errorf("invalid value for is not operation: %s", typedClause.Value)
-				}
 			case filter.OperationGreaterThan:
 				switch personFieldDefinition.Type {
 				case "integer":
@@ -173,6 +180,20 @@ func buildPersonQuery(ctx context.Context, db *gorm.DB, organizationID uint64, g
 			default:
 				return fmt.Errorf("unknown operation: %s", typedClause.Operation)
 			}
+		case *filter.ClauseIsNull:
+			fieldInfo := fieldInfoMap[typedClause.Name]
+			if fieldInfo == nil {
+				return fmt.Errorf("unknown field: %s", typedClause.Name)
+			}
+
+			groupQuery = groupQuery.Where(fieldInfo.TableName + ".value IS NULL")
+		case *filter.ClauseIsNotNull:
+			fieldInfo := fieldInfoMap[typedClause.Name]
+			if fieldInfo == nil {
+				return fmt.Errorf("unknown field: %s", typedClause.Name)
+			}
+
+			groupQuery = groupQuery.Where(fieldInfo.TableName + ".value IS NOT NULL")
 		case *filter.ClauseGroup:
 			slog.DebugContext(ctx, fmt.Sprintf("f: group: %+v", typedClause))
 

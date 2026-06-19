@@ -105,9 +105,7 @@ func ParseTokens(tokens []*Token) (Clause, error) {
 			continue
 		}
 
-		clause := &ClauseCondition{
-			Name: token.Value,
-		}
+		fieldName := token.Value
 
 		if len(tokens) == 0 {
 			return nil, fmt.Errorf("missing operation")
@@ -117,38 +115,47 @@ func ParseTokens(tokens []*Token) (Clause, error) {
 		if token.Quote != "" {
 			return nil, fmt.Errorf("invalid operation: %s", token.String())
 		}
-		clause.Operation = token.Value
+		operation := strings.ToLower(token.Value)
 
-		if !ValidOperationMap[clause.Operation] {
-			return nil, fmt.Errorf("invalid operation: %s", clause.Operation)
+		if !ValidOperationMap[operation] {
+			return nil, fmt.Errorf("invalid operation: %s", operation)
 		}
 
 		if len(tokens) == 0 {
-			return nil, fmt.Errorf("missing value")
+			return nil, fmt.Errorf("missing operation value")
 		}
 		token = tokens[0]
 		tokens = tokens[1:]
 
-		if clause.Operation == OperationIs {
-			switch token.Value {
+		var clause Clause
+		switch operation {
+		case OperationIs:
+			switch strings.ToLower(token.Value) {
 			case "null":
-				clause.Value = "null"
+				clause = &ClauseIsNull{
+					Name: fieldName,
+				}
 			case "not":
 				if len(tokens) == 0 {
 					return nil, fmt.Errorf("missing value for is not operation")
 				}
 				token = tokens[0]
 				tokens = tokens[1:]
-				if token.Value != "null" {
+				if strings.ToLower(token.Value) != "null" {
 					return nil, fmt.Errorf("invalid value for is not operation: %s", token.Value)
 				}
-				clause.Operation = OperationIsNot
-				clause.Value = "null"
+				clause = &ClauseIsNotNull{
+					Name: fieldName,
+				}
 			default:
 				return nil, fmt.Errorf("invalid value for is operation: %s", token.Value)
 			}
-		} else {
-			clause.Value = token.Value
+		default:
+			clause = &ClauseCondition{
+				Name:      fieldName,
+				Operation: operation,
+				Value:     token.Value,
+			}
 		}
 
 		andGroup.Clauses = append(andGroup.Clauses, clause)
