@@ -6,8 +6,8 @@ import (
 
 	"github.com/downballot/downballot/downballotapi"
 	"github.com/downballot/downballot/internal/api/downballotwrapper"
-	"github.com/downballot/downballot/internal/api/resttype"
 	"github.com/downballot/downballot/internal/schema"
+	"github.com/downballot/downballot/internal/schema/sqltype"
 	"github.com/tekkamanendless/restfulwrapper"
 	"gorm.io/gorm"
 )
@@ -68,7 +68,7 @@ func (a *API) PostOrganizationIDPersonFieldID(ctx context.Context, meta PatchOrg
 		updateMap["allow_empty"] = *meta.Body.AllowEmpty
 	}
 	if meta.Body.AllowedValues != nil {
-		updateMap["allowed_values"] = resttype.StringList(meta.Body.AllowedValues)
+		updateMap["allowed_values"] = sqltype.StringArray(meta.Body.AllowedValues)
 	}
 	if meta.Body.AllowedRegex != nil {
 		updateMap["allowed_regex"] = *meta.Body.AllowedRegex
