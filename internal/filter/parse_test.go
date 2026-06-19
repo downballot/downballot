@@ -148,6 +148,36 @@ func TestParseQuery(t *testing.T) {
 			query:       "key1 is not bogus",
 			success:     false,
 		},
+		{
+			description: "single value for equal",
+			query:       "key1 = (value1)",
+			success:     true,
+			canonical:   "key1 = value1",
+		},
+		{
+			description: "single value for equal",
+			query:       "key1 = (value1,)",
+			success:     true,
+			canonical:   "key1 = value1",
+		},
+		{
+			description: "multiple values for equal",
+			query:       "key1 = (value1, value2)",
+			success:     true,
+			canonical:   "key1 = (value1, value2)",
+		},
+		{
+			description: "multiple values for equal",
+			query:       "key1 = (value1, value2, )",
+			success:     true,
+			canonical:   "key1 = (value1, value2)",
+		},
+		{
+			description: "multiple values for like",
+			query:       "key1 ~ ('*1', '*2')",
+			success:     true,
+			canonical:   "key1 ~ ('*1', '*2')",
+		},
 	}
 	for rowIndex, row := range rows {
 		t.Run(fmt.Sprintf("%d/%s", rowIndex, row.description), func(t *testing.T) {

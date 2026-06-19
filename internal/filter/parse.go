@@ -26,6 +26,39 @@ func Parse(ctx context.Context, input string) (Clause, error) {
 	return clause, nil
 }
 
+// readParentheticalGroup reads a parenthetical group from the tokens.
+//
+// This updates the tokens slice to remove the tokens that were read.
+func readParentheticalGroup(tokens *[]*Token) ([]*Token, error) {
+	parens := 1
+	var group []*Token
+	for len(*tokens) > 0 {
+		token := (*tokens)[0]
+		*tokens = (*tokens)[1:]
+
+		if token.Quote == "" {
+			if token.Value == "(" {
+				parens++
+				// Don't include the first paren when building out the group.
+				if parens == 1 {
+					continue
+				}
+			} else if token.Value == ")" {
+				parens--
+				// Don't include the last paren when building out the group.
+				if parens == 0 {
+					break
+				}
+			}
+		}
+		group = append(group, token)
+	}
+	if parens > 0 {
+		return nil, fmt.Errorf("mismatched parens: %d", parens)
+	}
+	return group, nil
+}
+
 func ParseTokens(tokens []*Token) (Clause, error) {
 	output := &ClauseGroup{
 		Operation: ClauseGroupOperationOr,
@@ -70,32 +103,11 @@ func ParseTokens(tokens []*Token) (Clause, error) {
 		}
 
 		if token.Quote == "" && token.Value == "(" {
-			parens := 1
-			var group []*Token
-			for len(tokens) > 0 {
-				token = tokens[0]
-				tokens = tokens[1:]
+			group, err := readParentheticalGroup(&tokens)
+			if err != nil {
+				return nil, err
+			}
 
-				if token.Quote == "" {
-					if token.Value == "(" {
-						parens++
-						// Don't include the first paren when building out the group.
-						if parens == 1 {
-							continue
-						}
-					} else if token.Value == ")" {
-						parens--
-						// Don't include the last paren when building out the group.
-						if parens == 0 {
-							break
-						}
-					}
-				}
-				group = append(group, token)
-			}
-			if parens > 0 {
-				return nil, fmt.Errorf("mismatched parens: %d", parens)
-			}
 			//fmt.Printf("group: %+v\n", group) // DEBUG
 			clause, err := ParseTokens(group)
 			if err != nil {
@@ -151,11 +163,36 @@ func ParseTokens(tokens []*Token) (Clause, error) {
 				return nil, fmt.Errorf("invalid value for is operation: %s", token.Value)
 			}
 		default:
-			clause = &ClauseCondition{
+			newClause := &ClauseCondition{
 				Name:      fieldName,
 				Operation: operation,
-				Value:     token.Value,
 			}
+
+			if token.Quote == "" && token.Value == "(" {
+				group, err := readParentheticalGroup(&tokens)
+				if err != nil {
+					return nil, err
+				}
+
+				// Ensure that the group is comma-separated.
+				for groupIndex, groupToken := range group {
+					fmt.Printf("groupIndex: %d, groupToken: %s\n", groupIndex, groupToken.String())
+					if groupIndex%2 == 0 {
+						if groupToken.Quote == "" && groupToken.Value == "," {
+							return nil, fmt.Errorf("unexpected comma in parenthetical group")
+						}
+						newClause.Values = append(newClause.Values, groupToken.Value)
+					} else {
+						if groupToken.Quote != "" || groupToken.Value != "," {
+							return nil, fmt.Errorf("expected comma in position %d in parenthetical group", groupIndex+1)
+						}
+					}
+				}
+			} else {
+				newClause.Values = []string{token.Value}
+			}
+
+			clause = newClause
 		}
 
 		andGroup.Clauses = append(andGroup.Clauses, clause)
