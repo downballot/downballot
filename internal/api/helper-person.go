@@ -142,55 +142,49 @@ func buildPersonQuery(ctx context.Context, db *gorm.DB, organizationID uint64, g
 				return fmt.Errorf("unknown field: %s", typedClause.Name)
 			}
 
-			if len(typedClause.Values) == 1 {
-				// We can just use `groupQuery` as is.
-			} else {
-				// We need to create a parenthetical subquery and add everything to that.
-				subquery := db.Session(&gorm.Session{NewDB: true, Initialized: true})
-				groupQuery.Where(subquery)
-
-				groupQuery = subquery
-			}
+			// We need to create a parenthetical subquery and add everything to that.
+			subquery := db.Session(&gorm.Session{NewDB: true, Initialized: true})
 			for _, value := range typedClause.Values {
 				switch typedClause.Operation {
 				case filter.OperationEquals:
-					groupQuery = groupQuery.Where(fieldInfo.TableName+".value = ?", value)
+					subquery = subquery.Or(fieldInfo.TableName+".value = ?", value)
 				case filter.OperationNotEquals:
-					groupQuery = groupQuery.Where(fieldInfo.TableName+".value IS NULL OR "+fieldInfo.TableName+".value != ?", value)
+					subquery = subquery.Or(fieldInfo.TableName+".value IS NULL OR "+fieldInfo.TableName+".value != ?", value)
 				case filter.OperationGreaterThan:
 					switch personFieldDefinition.Type {
 					case "integer":
-						groupQuery = groupQuery.Where("CAST("+fieldInfo.TableName+".value AS INTEGER) > ?", value)
+						subquery = subquery.Or("CAST("+fieldInfo.TableName+".value AS INTEGER) > ?", value)
 					default:
-						groupQuery = groupQuery.Where(fieldInfo.TableName+".value > ?", value)
+						subquery = subquery.Or(fieldInfo.TableName+".value > ?", value)
 					}
 				case filter.OperationGreaterThanOrEqual:
 					switch personFieldDefinition.Type {
 					case "integer":
-						groupQuery = groupQuery.Where("CAST("+fieldInfo.TableName+".value AS INTEGER) >= ?", value)
+						subquery = subquery.Or("CAST("+fieldInfo.TableName+".value AS INTEGER) >= ?", value)
 					default:
-						groupQuery = groupQuery.Where(fieldInfo.TableName+".value >= ?", value)
+						subquery = subquery.Or(fieldInfo.TableName+".value >= ?", value)
 					}
 				case filter.OperationLessThan:
 					switch personFieldDefinition.Type {
 					case "integer":
-						groupQuery = groupQuery.Where("CAST("+fieldInfo.TableName+".value AS INTEGER) < ?", value)
+						subquery = subquery.Or("CAST("+fieldInfo.TableName+".value AS INTEGER) < ?", value)
 					default:
-						groupQuery = groupQuery.Where(fieldInfo.TableName+".value < ?", value)
+						subquery = subquery.Or(fieldInfo.TableName+".value < ?", value)
 					}
 				case filter.OperationLessThanOrEqual:
 					switch personFieldDefinition.Type {
 					case "integer":
-						groupQuery = groupQuery.Where("CAST("+fieldInfo.TableName+".value AS INTEGER) <= ?", value)
+						subquery = subquery.Or("CAST("+fieldInfo.TableName+".value AS INTEGER) <= ?", value)
 					default:
-						groupQuery = groupQuery.Where(fieldInfo.TableName+".value <= ?", value)
+						subquery = subquery.Or(fieldInfo.TableName+".value <= ?", value)
 					}
 				case filter.OperationWildcard:
-					groupQuery = groupQuery.Where(fieldInfo.TableName+".value LIKE ?", strings.ReplaceAll(value, "*", "%"))
+					subquery = subquery.Or(fieldInfo.TableName+".value LIKE ?", strings.ReplaceAll(value, "*", "%"))
 				default:
 					return fmt.Errorf("unknown operation: %s", typedClause.Operation)
 				}
 			}
+			groupQuery = groupQuery.Where(subquery)
 		case *filter.ClauseIsNull:
 			fieldInfo := fieldInfoMap[typedClause.Name]
 			if fieldInfo == nil {
