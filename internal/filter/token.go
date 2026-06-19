@@ -8,12 +8,17 @@ import (
 // QuoteIfNecessary quotes the input if necessary; otherwise, it returns input as-is.
 func QuoteIfNecessary(input string) string {
 	quote := byte(0)
-	if strings.Contains(input, "'") {
-		quote = '\''
-	} else if strings.Contains(input, "\"") {
-		quote = '\''
-	} else if strings.Contains(input, " ") || strings.Contains(input, "\t") || strings.Contains(input, "\n") {
-		quote = '\''
+
+	var quotableCharacters []byte
+	quotableCharacters = append(quotableCharacters, ' ', '\t', '\n')
+	quotableCharacters = append(quotableCharacters, '(', ')', '{', '}', '[', ']', ',', ';', '#')
+	quotableCharacters = append(quotableCharacters, '<', '>', '=', '-', '+', '/', '*', '&', '|', '%', '^', '!')
+
+	for _, quotableCharacter := range quotableCharacters {
+		if strings.Contains(input, string(quotableCharacter)) {
+			quote = '\''
+			break
+		}
 	}
 	if quote == byte(0) {
 		return input

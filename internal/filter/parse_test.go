@@ -130,7 +130,7 @@ func TestParseQuery(t *testing.T) {
 			description: "is null",
 			query:       "key1 is null",
 			success:     true,
-			canonical:   "key1 is null",
+			canonical:   "key1 IS NULL",
 		},
 		{
 			description: "is bogus",
@@ -141,12 +141,42 @@ func TestParseQuery(t *testing.T) {
 			description: "is not null",
 			query:       "key1 is not null",
 			success:     true,
-			canonical:   "key1 is not null",
+			canonical:   "key1 IS NOT NULL",
 		},
 		{
 			description: "is not bogus",
 			query:       "key1 is not bogus",
 			success:     false,
+		},
+		{
+			description: "single value for equal",
+			query:       "key1 = (value1)",
+			success:     true,
+			canonical:   "key1 = value1",
+		},
+		{
+			description: "single value for equal",
+			query:       "key1 = (value1,)",
+			success:     true,
+			canonical:   "key1 = value1",
+		},
+		{
+			description: "multiple values for equal",
+			query:       "key1 = (value1, value2)",
+			success:     true,
+			canonical:   "key1 = (value1, value2)",
+		},
+		{
+			description: "multiple values for equal",
+			query:       "key1 = (value1, value2, )",
+			success:     true,
+			canonical:   "key1 = (value1, value2)",
+		},
+		{
+			description: "multiple values for like",
+			query:       "key1 ~ ('*1', '*2')",
+			success:     true,
+			canonical:   "key1 ~ ('*1', '*2')",
 		},
 	}
 	for rowIndex, row := range rows {
