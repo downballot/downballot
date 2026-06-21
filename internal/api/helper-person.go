@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/downballot/downballot/downballotapi"
@@ -179,7 +180,29 @@ func buildPersonQuery(ctx context.Context, db *gorm.DB, organizationID uint64, g
 						subquery = subquery.Or(fieldInfo.TableName+".value <= ?", value)
 					}
 				case filter.OperationWildcard:
-					subquery = subquery.Or(fieldInfo.TableName+".value LIKE ?", strings.ReplaceAll(value, "*", "%"))
+					switch personFieldDefinition.Type {
+					case schema.PersonFieldDefinitionTypeCoordinates:
+						parts := strings.SplitN(value, ",", 2)
+						if len(parts) != 2 {
+							return fmt.Errorf("invalid coordinates value: %s", value)
+						}
+						latitude, err := strconv.ParseFloat(parts[0], 64)
+						if err != nil {
+							return fmt.Errorf("invalid latitude: %w", err)
+						}
+						longitude, err := strconv.ParseFloat(parts[1], 64)
+						if err != nil {
+							return fmt.Errorf("invalid longitude: %w", err)
+						}
+						oneMeter := 0.000009
+						subquery = subquery.Or(
+							db.Session(&gorm.Session{NewDB: true, Initialized: true}).
+								Where("CAST(SUBSTR("+fieldInfo.TableName+".value, 1, INSTR("+fieldInfo.TableName+".value, ',')) AS REAL) BETWEEN ? AND ?", latitude-100*oneMeter, latitude+100*oneMeter).
+								Where("CAST(SUBSTR("+fieldInfo.TableName+".value, INSTR("+fieldInfo.TableName+".value, ',') + 1) AS REAL) BETWEEN ? AND ?", longitude-100*oneMeter, longitude+100*oneMeter),
+						)
+					default:
+						subquery = subquery.Or(fieldInfo.TableName+".value LIKE ?", strings.ReplaceAll(value, "*", "%"))
+					}
 				default:
 					return fmt.Errorf("unknown operation: %s", typedClause.Operation)
 				}
