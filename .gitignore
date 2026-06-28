@@ -1,3 +1,4 @@
 /.env
+/bin
 /config.json
 /test
