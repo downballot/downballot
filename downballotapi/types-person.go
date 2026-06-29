@@ -57,6 +57,17 @@ type PatchPersonRequest struct {
 	Fields map[string]*string `json:"fields"` // If a field is nil, then it should be removed.
 }
 
+// PostPersonUpdateRequest is the request for updating the persons in bulk.
+type PostPersonUpdateRequest struct {
+	VoterIDs []string           `json:"voter_ids"` // These are the voter IDs of the persons to update.
+	Fields   map[string]*string `json:"fields"`    // If a field is nil, then it should be removed.
+}
+
+// PostPersonUpdateResponse is the response for updating the persons in bulk.
+type PostPersonUpdateResponse struct {
+	Persons []*Person `json:"persons"`
+}
+
 // Person is an person.
 type Person struct {
 	ID      string            `json:"id"`
