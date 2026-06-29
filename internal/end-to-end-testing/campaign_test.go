@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tekkamanendless/go-mailer"
+	"github.com/tekkamanendless/httperror"
 	"github.com/tekkamanendless/restapiclient"
 )
 
@@ -515,6 +516,59 @@ func TestCampaign(t *testing.T) {
 			assert.Len(t, output.Persons, len(desiredNames))
 		}
 
+		t.Logf("Update fails with a bogus voter ID")
+		{
+			candidateDateCalled := "2026-06-29"
+			input := downballotapi.PostPersonUpdateRequest{
+				VoterIDs: append([]string{"bogus"}, desiredVoterIDs...),
+				Fields: map[string]*string{
+					"candidate.date_called": &candidateDateCalled,
+				},
+			}
+			t.Logf("Update the persons request: %+v", input)
+			var output downballotapi.ListPersonsResponse
+			err := adminClient.Do(ctx, http.MethodPost, "/api/v1/organization/"+organizationId+"/person/update", input, &output)
+			require.ErrorIs(t, err, httperror.ErrStatusBadRequest)
+		}
+
+		t.Logf("Update does nothing with no voter IDs")
+		{
+			candidateDateCalled := "2026-06-29"
+			input := downballotapi.PostPersonUpdateRequest{
+				VoterIDs: []string{},
+				Fields: map[string]*string{
+					"candidate.date_called": &candidateDateCalled,
+				},
+			}
+			t.Logf("Update the persons request: %+v", input)
+			var output downballotapi.ListPersonsResponse
+			err := adminClient.Do(ctx, http.MethodPost, "/api/v1/organization/"+organizationId+"/person/update", input, &output)
+			require.NoError(t, err)
+
+			t.Logf("Get Luffy")
+			{
+				voterID := nameToVoterIDMap["LUFFY D MONKEY"]
+				require.NotEmpty(t, voterID)
+
+				var output downballotapi.GetPersonResponse
+				err := adminClient.Do(ctx, http.MethodGet, "/api/v1/organization/"+organizationId+"/person/"+voterID, nil, &output)
+				require.NoError(t, err)
+				assert.Equal(t, "", output.Person.Fields["candidate.connected"])
+				assert.Equal(t, "", output.Person.Fields["candidate.date_called"])
+			}
+
+			t.Logf("Verify the audit")
+			{
+				voterID := nameToVoterIDMap["LUFFY D MONKEY"]
+				require.NotEmpty(t, voterID)
+
+				var output downballotapi.ListPersonAuditsResponse
+				err := adminClient.Do(ctx, http.MethodGet, "/api/v1/organization/"+organizationId+"/person/"+voterID+"/audit", nil, &output)
+				require.NoError(t, err)
+				assert.Len(t, output.Audits, 0)
+			}
+		}
+
 		t.Logf("Update Luffy")
 		{
 			voterID := nameToVoterIDMap["LUFFY D MONKEY"]
@@ -535,7 +589,7 @@ func TestCampaign(t *testing.T) {
 			assert.Equal(t, "true", output.Person.Fields["candidate.connected"])
 			assert.Equal(t, "2026-06-29", output.Person.Fields["candidate.date_called"])
 
-			t.Logf("Get the person")
+			t.Logf("Get Luffy")
 			{
 				var output downballotapi.GetPersonResponse
 				err := adminClient.Do(ctx, http.MethodGet, "/api/v1/organization/"+organizationId+"/person/"+voterID, nil, &output)
