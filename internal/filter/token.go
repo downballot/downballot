@@ -12,7 +12,7 @@ func QuoteIfNecessary(input string) string {
 	var quotableCharacters []byte
 	quotableCharacters = append(quotableCharacters, ' ', '\t', '\n')
 	quotableCharacters = append(quotableCharacters, '(', ')', '{', '}', '[', ']', ',', ';', '#')
-	quotableCharacters = append(quotableCharacters, '<', '>', '=', '-', '+', '/', '*', '&', '|', '%', '^', '!')
+	quotableCharacters = append(quotableCharacters, '<', '>', '=', '~', '-', '+', '/', '*', '&', '|', '%', '^', '!')
 
 	for _, quotableCharacter := range quotableCharacters {
 		if strings.Contains(input, string(quotableCharacter)) {
@@ -99,7 +99,7 @@ func Tokenize(input string) ([]*Token, error) {
 						currentToken.Value += string(input[i])
 					}
 				}
-			case '<', '>', '=', '-', '+', '/', '*', '&', '|', '%', '^', '!':
+			case '<', '>', '=', '~', '-', '+', '/', '*', '&', '|', '%', '^', '!':
 				if currentToken == nil {
 					currentToken = &Token{
 						Value:  string(input[i]),
