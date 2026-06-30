@@ -220,6 +220,12 @@ func TestTokenize(t *testing.T) {
 			tokens:      []string{"1", "~", "2"},
 		},
 		{
+			description: "not wildcard",
+			input:       "1 !~ 2",
+			success:     true,
+			tokens:      []string{"1", "!~", "2"},
+		},
+		{
 			description: "incomplete single quote",
 			input:       "hello, 'world",
 			success:     false,
