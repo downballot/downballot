@@ -152,7 +152,7 @@ func buildPersonQuery(ctx context.Context, db *gorm.DB, organizationID uint64, g
 				case filter.OperationEquals:
 					subquery = subquery.Or(fieldInfo.TableName+".value = ?", value)
 				case filter.OperationNotEquals:
-					subquery = subquery.Or(fieldInfo.TableName+".value IS NULL OR "+fieldInfo.TableName+".value != ?", value)
+					subquery = subquery.Where(fieldInfo.TableName+".value IS NULL OR "+fieldInfo.TableName+".value != ?", value)
 				case filter.OperationGreaterThan:
 					switch personFieldDefinition.Type {
 					case "integer":
@@ -221,13 +221,13 @@ func buildPersonQuery(ctx context.Context, db *gorm.DB, organizationID uint64, g
 							return fmt.Errorf("invalid longitude: %w", err)
 						}
 						oneMeter := 0.000009
-						subquery = subquery.Or(
+						subquery = subquery.Where(
 							db.Session(&gorm.Session{NewDB: true, Initialized: true}).
 								Or("CAST(SUBSTR("+fieldInfo.TableName+".value, 1, INSTR("+fieldInfo.TableName+".value, ',')) AS REAL) NOT BETWEEN ? AND ?", latitude-100*oneMeter, latitude+100*oneMeter).
 								Or("CAST(SUBSTR("+fieldInfo.TableName+".value, INSTR("+fieldInfo.TableName+".value, ',') + 1) AS REAL) NOT BETWEEN ? AND ?", longitude-100*oneMeter, longitude+100*oneMeter),
 						)
 					default:
-						subquery = subquery.Or(fieldInfo.TableName+".value NOT LIKE ?", strings.ReplaceAll(value, "*", "%"))
+						subquery = subquery.Where(fieldInfo.TableName+".value NOT LIKE ?", strings.ReplaceAll(value, "*", "%"))
 					}
 				default:
 					return fmt.Errorf("unknown operation: %s", typedClause.Operation)
