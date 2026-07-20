@@ -341,10 +341,14 @@ func buildPersonQuery(ctx context.Context, db *gorm.DB, organizationID uint64, g
 
 			// Set up the joins.
 			for _, fieldInfo := range fieldInfoList {
-				joinType := "INNER JOIN"
-				if !fieldInfo.InnerJoin {
-					joinType = "LEFT OUTER JOIN"
-				}
+				/*
+					// TODO: We can only use INNER JOIN if there are no "OR" clauses against the same table.
+					joinType := "INNER JOIN"
+					if !fieldInfo.InnerJoin {
+						joinType = "LEFT OUTER JOIN"
+					}
+				*/
+				joinType := "LEFT OUTER JOIN"
 				query = query.Joins("/* "+fieldInfo.FieldName+" */ "+joinType+" person_field AS "+fieldInfo.TableName+" ON person.id = "+fieldInfo.TableName+".person_id AND "+fieldInfo.TableName+".person_field_definition_id = ?", fieldInfo.PersonFieldDefinitionID)
 			}
 
