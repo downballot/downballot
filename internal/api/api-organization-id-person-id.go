@@ -18,6 +18,48 @@ import (
 	"gorm.io/gorm"
 )
 
+type DeleteOrganizationIDPersonIDMetadata struct {
+	restfulwrapper.HTTPMethodDELETE
+	downballotwrapper.RequireAuthenticatedUser
+	downballotwrapper.UseDatabase
+	hasOrganization
+	downballotwrapper.RequirePermissionPersonDelete
+	VoterID string `api:"path:voter_id"`
+	_       string `api:"httppath:/organization/{organization_id}/person/{voter_id}"`
+	_       string `api:"doc" description:"Delete the person."`
+	_       string `api:"notes" description:"This deletes the person with the given voter ID."`
+}
+
+func (a *API) DeleteOrganizationIDPersonID(ctx context.Context, meta DeleteOrganizationIDPersonIDMetadata) error {
+	filter := "voter_id = " + meta.VoterID
+	limit := 1
+	persons, err := filterPersons(ctx, meta.DB, meta.CurrentUser.ID, meta.Organization.ID, nil /*no group ID*/, &filter, nil /*no fields*/, limit)
+	if err != nil {
+		return fmt.Errorf("could not filter persons: %w", err)
+	}
+	if len(persons) == 0 {
+		return restfulwrapper.NewAPIResponseError(http.StatusNotFound, "")
+	}
+
+	person := persons[0]
+
+	err = meta.DB.Transaction(func(db *gorm.DB) error {
+		err := db.Session(&gorm.Session{}).
+			Where("id = ?", person.ID).
+			Delete(&schema.Person{}).
+			Error
+		if err != nil {
+			return fmt.Errorf("could not delete person: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("could not delete person: %w", err)
+	}
+
+	return nil
+}
+
 type GetOrganizationIDPersonIDMetadata struct {
 	restfulwrapper.HTTPMethodGET
 	downballotwrapper.RequireAuthenticatedUser
