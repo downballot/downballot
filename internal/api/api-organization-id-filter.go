@@ -102,6 +102,7 @@ func (a *API) GetOrganizationIDFilter(ctx context.Context, meta GetOrganizationI
 		}
 	}
 	err = query.
+		Order("name ASC").
 		Find(&filters).
 		Error
 	if err != nil {
