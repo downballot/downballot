@@ -34,6 +34,12 @@ func buildPersonQuery(ctx context.Context, db *gorm.DB, organizationID uint64, g
 	// The field is assumed to be required, but if any request says that it's *not* required, then
 	// the InnerJoin field will be set to false.
 	registerFieldTableIfNecessary := func(fieldName string, required bool) error {
+		// Handle any special cases first.
+		switch fieldName {
+		case "voter_id":
+			return nil
+		}
+
 		personFieldDefinition := fieldDefinitionByNameMap[fieldName]
 		if personFieldDefinition == nil {
 			return fmt.Errorf("unknown field: %s", fieldName)
@@ -128,6 +134,23 @@ func buildPersonQuery(ctx context.Context, db *gorm.DB, organizationID uint64, g
 		return nil
 	}
 
+	// getFieldColumn returns the column name for a field.
+	getFieldColumn := func(fieldName string) (string, error) {
+		// Handle any special cases first.
+		switch fieldName {
+		case "voter_id":
+			return "person.voter_id", nil
+		}
+
+		fieldInfo := fieldInfoMap[fieldName]
+		if fieldInfo == nil {
+			return "", fmt.Errorf("unknown field: %s", fieldName)
+		}
+
+		fieldColumn := fieldInfo.TableName + ".value"
+		return fieldColumn, nil
+	}
+
 	var f func(clause filter.Clause, groupQuery *gorm.DB) error
 	f = func(clause filter.Clause, groupQuery *gorm.DB) error {
 		slog.DebugContext(ctx, fmt.Sprintf("f: clause: %+v", clause))
@@ -140,9 +163,9 @@ func buildPersonQuery(ctx context.Context, db *gorm.DB, organizationID uint64, g
 				return fmt.Errorf("unknown field: %s", typedClause.Name)
 			}
 
-			fieldInfo := fieldInfoMap[typedClause.Name]
-			if fieldInfo == nil {
-				return fmt.Errorf("unknown field: %s", typedClause.Name)
+			fieldColumn, err := getFieldColumn(typedClause.Name)
+			if err != nil {
+				return fmt.Errorf("could not get field column (%T) %q: %w", typedClause, typedClause.Name, err)
 			}
 
 			// We need to create a parenthetical subquery and add everything to that.
@@ -150,36 +173,36 @@ func buildPersonQuery(ctx context.Context, db *gorm.DB, organizationID uint64, g
 			for _, value := range typedClause.Values {
 				switch typedClause.Operation {
 				case filter.OperationEquals:
-					subquery = subquery.Or(fieldInfo.TableName+".value = ?", value)
+					subquery = subquery.Or(fieldColumn+" = ?", value)
 				case filter.OperationNotEquals:
-					subquery = subquery.Where(fieldInfo.TableName+".value IS NULL OR "+fieldInfo.TableName+".value != ?", value)
+					subquery = subquery.Where(fieldColumn+" IS NULL OR "+fieldColumn+" != ?", value)
 				case filter.OperationGreaterThan:
 					switch personFieldDefinition.Type {
 					case "integer":
-						subquery = subquery.Or("CAST("+fieldInfo.TableName+".value AS INTEGER) > ?", value)
+						subquery = subquery.Or("CAST("+fieldColumn+" AS INTEGER) > ?", value)
 					default:
-						subquery = subquery.Or(fieldInfo.TableName+".value > ?", value)
+						subquery = subquery.Or(fieldColumn+" > ?", value)
 					}
 				case filter.OperationGreaterThanOrEqual:
 					switch personFieldDefinition.Type {
 					case "integer":
-						subquery = subquery.Or("CAST("+fieldInfo.TableName+".value AS INTEGER) >= ?", value)
+						subquery = subquery.Or("CAST("+fieldColumn+" AS INTEGER) >= ?", value)
 					default:
-						subquery = subquery.Or(fieldInfo.TableName+".value >= ?", value)
+						subquery = subquery.Or(fieldColumn+" >= ?", value)
 					}
 				case filter.OperationLessThan:
 					switch personFieldDefinition.Type {
 					case "integer":
-						subquery = subquery.Or("CAST("+fieldInfo.TableName+".value AS INTEGER) < ?", value)
+						subquery = subquery.Or("CAST("+fieldColumn+" AS INTEGER) < ?", value)
 					default:
-						subquery = subquery.Or(fieldInfo.TableName+".value < ?", value)
+						subquery = subquery.Or(fieldColumn+" < ?", value)
 					}
 				case filter.OperationLessThanOrEqual:
 					switch personFieldDefinition.Type {
 					case "integer":
-						subquery = subquery.Or("CAST("+fieldInfo.TableName+".value AS INTEGER) <= ?", value)
+						subquery = subquery.Or("CAST("+fieldColumn+" AS INTEGER) <= ?", value)
 					default:
-						subquery = subquery.Or(fieldInfo.TableName+".value <= ?", value)
+						subquery = subquery.Or(fieldColumn+" <= ?", value)
 					}
 				case filter.OperationWildcard:
 					switch personFieldDefinition.Type {
@@ -199,11 +222,11 @@ func buildPersonQuery(ctx context.Context, db *gorm.DB, organizationID uint64, g
 						oneMeter := 0.000009
 						subquery = subquery.Or(
 							db.Session(&gorm.Session{NewDB: true, Initialized: true}).
-								Where("CAST(SUBSTR("+fieldInfo.TableName+".value, 1, INSTR("+fieldInfo.TableName+".value, ',')) AS REAL) BETWEEN ? AND ?", latitude-100*oneMeter, latitude+100*oneMeter).
-								Where("CAST(SUBSTR("+fieldInfo.TableName+".value, INSTR("+fieldInfo.TableName+".value, ',') + 1) AS REAL) BETWEEN ? AND ?", longitude-100*oneMeter, longitude+100*oneMeter),
+								Where("CAST(SUBSTR("+fieldColumn+", 1, INSTR("+fieldColumn+", ',')) AS REAL) BETWEEN ? AND ?", latitude-100*oneMeter, latitude+100*oneMeter).
+								Where("CAST(SUBSTR("+fieldColumn+", INSTR("+fieldColumn+", ',') + 1) AS REAL) BETWEEN ? AND ?", longitude-100*oneMeter, longitude+100*oneMeter),
 						)
 					default:
-						subquery = subquery.Or(fieldInfo.TableName+".value LIKE ?", strings.ReplaceAll(value, "*", "%"))
+						subquery = subquery.Or(fieldColumn+" LIKE ?", strings.ReplaceAll(value, "*", "%"))
 					}
 				case filter.OperationNotWildcard:
 					switch personFieldDefinition.Type {
@@ -223,11 +246,11 @@ func buildPersonQuery(ctx context.Context, db *gorm.DB, organizationID uint64, g
 						oneMeter := 0.000009
 						subquery = subquery.Where(
 							db.Session(&gorm.Session{NewDB: true, Initialized: true}).
-								Or("CAST(SUBSTR("+fieldInfo.TableName+".value, 1, INSTR("+fieldInfo.TableName+".value, ',')) AS REAL) NOT BETWEEN ? AND ?", latitude-100*oneMeter, latitude+100*oneMeter).
-								Or("CAST(SUBSTR("+fieldInfo.TableName+".value, INSTR("+fieldInfo.TableName+".value, ',') + 1) AS REAL) NOT BETWEEN ? AND ?", longitude-100*oneMeter, longitude+100*oneMeter),
+								Or("CAST(SUBSTR("+fieldColumn+", 1, INSTR("+fieldColumn+", ',')) AS REAL) NOT BETWEEN ? AND ?", latitude-100*oneMeter, latitude+100*oneMeter).
+								Or("CAST(SUBSTR("+fieldColumn+", INSTR("+fieldColumn+", ',') + 1) AS REAL) NOT BETWEEN ? AND ?", longitude-100*oneMeter, longitude+100*oneMeter),
 						)
 					default:
-						subquery = subquery.Where(fieldInfo.TableName+".value NOT LIKE ?", strings.ReplaceAll(value, "*", "%"))
+						subquery = subquery.Where(fieldColumn+" NOT LIKE ?", strings.ReplaceAll(value, "*", "%"))
 					}
 				default:
 					return fmt.Errorf("unknown operation: %s", typedClause.Operation)
@@ -235,19 +258,19 @@ func buildPersonQuery(ctx context.Context, db *gorm.DB, organizationID uint64, g
 			}
 			groupQuery = groupQuery.Where(subquery)
 		case *filter.ClauseIsNull:
-			fieldInfo := fieldInfoMap[typedClause.Name]
-			if fieldInfo == nil {
-				return fmt.Errorf("unknown field: %s", typedClause.Name)
+			fieldColumn, err := getFieldColumn(typedClause.Name)
+			if err != nil {
+				return fmt.Errorf("could not get field column (%T) %q: %w", typedClause, typedClause.Name, err)
 			}
 
-			groupQuery = groupQuery.Where(fieldInfo.TableName + ".value IS NULL")
+			groupQuery = groupQuery.Where(fieldColumn + " IS NULL")
 		case *filter.ClauseIsNotNull:
-			fieldInfo := fieldInfoMap[typedClause.Name]
-			if fieldInfo == nil {
-				return fmt.Errorf("unknown field: %s", typedClause.Name)
+			fieldColumn, err := getFieldColumn(typedClause.Name)
+			if err != nil {
+				return fmt.Errorf("could not get field column (%T) %q: %w", typedClause, typedClause.Name, err)
 			}
 
-			groupQuery = groupQuery.Where(fieldInfo.TableName + ".value IS NOT NULL")
+			groupQuery = groupQuery.Where(fieldColumn + " IS NOT NULL")
 		case *filter.ClauseGroup:
 			slog.DebugContext(ctx, fmt.Sprintf("f: group: %+v", typedClause))
 
