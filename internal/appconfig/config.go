@@ -12,6 +12,5 @@ type Config struct {
 	MasterToken            string `json:"master_token"`
 	EncryptionKey          string `json:"encryption_key"`
 	SendGridAPIKey         string `json:"sendgrid_api_key"`
-	GoogleMapsAPIKey       string `json:"google_maps_api_key"`
 	GoogleMapsServerAPIKey string `json:"google_maps_server_api_key"`
 }
