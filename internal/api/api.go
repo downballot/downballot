@@ -19,10 +19,11 @@ import (
 )
 
 type API struct {
-	jwtSecret     []byte          // This is the JWT secret, if any.
-	jwtPublicKey  *rsa.PublicKey  // This is the JWT public key, if any.
-	jwtPrivateKey *rsa.PrivateKey // This is the JWT private key, if any.
-	mailer        *mailer.Mailer  // This is the mailer.
+	jwtSecret              []byte          // This is the JWT secret, if any.
+	jwtPublicKey           *rsa.PublicKey  // This is the JWT public key, if any.
+	jwtPrivateKey          *rsa.PrivateKey // This is the JWT private key, if any.
+	mailer                 *mailer.Mailer  // This is the mailer.
+	googleMapsServerAPIKey string          // This is the Google Maps Server API key.
 }
 
 // DefaultPageSize is the default page size for paginated things.
@@ -130,10 +131,11 @@ func (i *Instance) Container(ctx context.Context) *restful.Container {
 				Attributes(middlewareConfig.Attributes()).
 				Do(middlewareConfig.Do())
 			session.Register(ctx, "/", &API{
-				jwtSecret:     i.jwtSecret,
-				jwtPublicKey:  i.jwtPublicKey,
-				jwtPrivateKey: i.jwtPrivateKey,
-				mailer:        mailerInstance,
+				jwtSecret:              i.jwtSecret,
+				jwtPublicKey:           i.jwtPublicKey,
+				jwtPrivateKey:          i.jwtPrivateKey,
+				mailer:                 mailerInstance,
+				googleMapsServerAPIKey: i.Config.GoogleMapsServerAPIKey,
 			})
 		}
 
