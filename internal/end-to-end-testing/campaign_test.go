@@ -51,6 +51,12 @@ func TestCampaign(t *testing.T) {
 	user2Id := ""
 	var user2Client *downballotapi.Client
 
+	// User 3 is an admin with no groups.
+	user3Name := "User Three"
+	user3Username := "user3@example.com"
+	user3Id := ""
+	var user3Client *downballotapi.Client
+
 	group1Name := "Monkey family"
 	group1Filter := "name_last = 'Monkey'"
 	group1Id := ""
@@ -96,6 +102,19 @@ func TestCampaign(t *testing.T) {
 		require.NoError(t, err)
 		user2Id = output.ID
 		t.Logf("User 2 ID: %s", user2Id)
+	}
+
+	t.Log("Register user 3.")
+	{
+		input := downballotapi.RegisterUserRequest{
+			Name:     user3Name,
+			Username: user3Username,
+		}
+		var output downballotapi.RegisterUserResponse
+		err := application.UnauthenticatedClient().Do(ctx, http.MethodPost, "/api/v1/user", input, &output)
+		require.NoError(t, err)
+		user3Id = output.ID
+		t.Logf("User 3 ID: %s", user3Id)
 	}
 
 	t.Log("Log in as the admin user.")
@@ -179,6 +198,33 @@ func TestCampaign(t *testing.T) {
 		require.NoError(t, err)
 	}
 
+	t.Log("Log in as user 3.")
+	{
+		user3Client = application.UnauthenticatedClient()
+
+		err := user3Client.Do(ctx, http.MethodPost, "/api/v1/authentication/email", downballotapi.EmailRequest{
+			Email: user3Username,
+		}, nil)
+		require.NoError(t, err)
+
+		passwordRegexp := regexp.MustCompile(`(?m)^\s*(\d{6})`)
+
+		message := mailer.Dummy().LastMessageInInbox(application.Config().SendGridAPIKey, user3Username)
+		require.NotNil(t, message)
+		t.Logf("Message: %s", message.BodyPlainText)
+		require.Equal(t, user3Username, message.To.Address)
+		require.Equal(t, "Your Downballot one-time password", message.Subject)
+		matches := passwordRegexp.FindStringSubmatch(message.BodyPlainText)
+		require.Len(t, matches, 2)
+		user3Password := matches[1]
+
+		err = user3Client.Login(ctx, &downballotapi.LoginRequest{
+			Username: user3Username,
+			Password: user3Password,
+		})
+		require.NoError(t, err)
+	}
+
 	t.Log("Create a new organization as the admin user.")
 	{
 		input := downballotapi.RegisterOrganizationRequest{
@@ -214,6 +260,16 @@ func TestCampaign(t *testing.T) {
 	{
 		input := downballotapi.AddUserToOrganizationRequest{
 			Username: user2Username,
+		}
+		err := adminClient.Do(ctx, http.MethodPost, "/api/v1/organization/"+organizationId+"/user", input, nil)
+		require.NoError(t, err)
+	}
+
+	t.Log("Add user 3 to the organization as an owner.")
+	{
+		input := downballotapi.AddUserToOrganizationRequest{
+			Username: user3Username,
+			Owner:    true,
 		}
 		err := adminClient.Do(ctx, http.MethodPost, "/api/v1/organization/"+organizationId+"/user", input, nil)
 		require.NoError(t, err)
@@ -456,6 +512,131 @@ func TestCampaign(t *testing.T) {
 		assert.Contains(t, names, "GARP D MONKEY")
 		assert.Contains(t, names, "SENGOKU BUDDHA")
 	}
+
+	t.Log("List the persons as user 3.")
+	{
+		var output downballotapi.ListPersonsResponse
+		err := user3Client.Do(ctx, http.MethodGet, "/api/v1/organization/"+organizationId+"/person", nil, &output)
+		require.NoError(t, err)
+
+		t.Logf("Persons: %v", output.Persons)
+		assert.Len(t, output.Persons, 11)
+		names := []string{}
+		for _, person := range output.Persons {
+			names = append(names, person.Fields["name"])
+		}
+		assert.Contains(t, names, "LUFFY D MONKEY")
+		assert.Contains(t, names, "ZORO RORONOA")
+		assert.Contains(t, names, "NAMI BELLMERE")
+		assert.Contains(t, names, "USOPP MONTBLANC")
+		assert.Contains(t, names, "TONY TONY CHOPPER")
+		assert.Contains(t, names, "ROBIN NICO")
+		assert.Contains(t, names, "CUTTY FLAM")
+		assert.Contains(t, names, "GARP D MONKEY")
+		assert.Contains(t, names, "ACE D PORTGAS")
+		assert.Contains(t, names, "SENGOKU BUDDHA")
+	}
+
+	t.Run("Search for a person", func(t *testing.T) {
+		t.Run("Luffy", func(t *testing.T) {
+			t.Run("Admin", func(t *testing.T) {
+				var output downballotapi.ListPersonsResponse
+				err := adminClient.Do(ctx, http.MethodGet, "/api/v1/organization/"+organizationId+"/person?filter=name+~+'*Luffy*'", nil, &output)
+				require.NoError(t, err)
+
+				t.Logf("Persons: %v", output.Persons)
+				assert.Len(t, output.Persons, 1)
+				names := []string{}
+				for _, person := range output.Persons {
+					names = append(names, person.Fields["name"])
+				}
+				assert.Contains(t, names, "LUFFY D MONKEY")
+			})
+			t.Run("User 1", func(t *testing.T) {
+				var output downballotapi.ListPersonsResponse
+				err := user1Client.Do(ctx, http.MethodGet, "/api/v1/organization/"+organizationId+"/person?filter=name+~+'*Luffy*'", nil, &output)
+				require.NoError(t, err)
+
+				t.Logf("Persons: %v", output.Persons)
+				assert.Len(t, output.Persons, 1)
+				names := []string{}
+				for _, person := range output.Persons {
+					names = append(names, person.Fields["name"])
+				}
+				assert.Contains(t, names, "LUFFY D MONKEY")
+			})
+			t.Run("User 2", func(t *testing.T) {
+				var output downballotapi.ListPersonsResponse
+				err := user2Client.Do(ctx, http.MethodGet, "/api/v1/organization/"+organizationId+"/person?filter=name+~+'*Luffy*'", nil, &output)
+				require.NoError(t, err)
+
+				t.Logf("Persons: %v", output.Persons)
+				assert.Len(t, output.Persons, 1)
+				names := []string{}
+				for _, person := range output.Persons {
+					names = append(names, person.Fields["name"])
+				}
+				assert.Contains(t, names, "LUFFY D MONKEY")
+			})
+			t.Run("User 3", func(t *testing.T) {
+				var output downballotapi.ListPersonsResponse
+				err := user3Client.Do(ctx, http.MethodGet, "/api/v1/organization/"+organizationId+"/person?filter=name+~+'*Luffy*'", nil, &output)
+				require.NoError(t, err)
+
+				t.Logf("Persons: %v", output.Persons)
+				assert.Len(t, output.Persons, 1)
+				names := []string{}
+				for _, person := range output.Persons {
+					names = append(names, person.Fields["name"])
+				}
+				assert.Contains(t, names, "LUFFY D MONKEY")
+			})
+		})
+		t.Run("Nami", func(t *testing.T) {
+			t.Run("Admin", func(t *testing.T) {
+				var output downballotapi.ListPersonsResponse
+				err := adminClient.Do(ctx, http.MethodGet, "/api/v1/organization/"+organizationId+"/person?filter=name+~+'*Nami*'", nil, &output)
+				require.NoError(t, err)
+
+				t.Logf("Persons: %v", output.Persons)
+				assert.Len(t, output.Persons, 1)
+				names := []string{}
+				for _, person := range output.Persons {
+					names = append(names, person.Fields["name"])
+				}
+				assert.Contains(t, names, "NAMI BELLMERE")
+			})
+			t.Run("User 1", func(t *testing.T) {
+				var output downballotapi.ListPersonsResponse
+				err := user1Client.Do(ctx, http.MethodGet, "/api/v1/organization/"+organizationId+"/person?filter=name+~+'*Nami*'", nil, &output)
+				require.NoError(t, err)
+
+				t.Logf("Persons: %v", output.Persons)
+				assert.Len(t, output.Persons, 0)
+			})
+			t.Run("User 2", func(t *testing.T) {
+				var output downballotapi.ListPersonsResponse
+				err := user2Client.Do(ctx, http.MethodGet, "/api/v1/organization/"+organizationId+"/person?filter=name+~+'*Nami*'", nil, &output)
+				require.NoError(t, err)
+
+				t.Logf("Persons: %v", output.Persons)
+				assert.Len(t, output.Persons, 0)
+			})
+			t.Run("User 3", func(t *testing.T) {
+				var output downballotapi.ListPersonsResponse
+				err := user3Client.Do(ctx, http.MethodGet, "/api/v1/organization/"+organizationId+"/person?filter=name+~+'*Nami*'", nil, &output)
+				require.NoError(t, err)
+
+				t.Logf("Persons: %v", output.Persons)
+				assert.Len(t, output.Persons, 1)
+				names := []string{}
+				for _, person := range output.Persons {
+					names = append(names, person.Fields["name"])
+				}
+				assert.Contains(t, names, "NAMI BELLMERE")
+			})
+		})
+	})
 
 	t.Run("Person modification workflow", func(t *testing.T) {
 
