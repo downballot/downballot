@@ -298,30 +298,37 @@ func buildPersonQuery(ctx context.Context, db *gorm.DB, organizationID uint64, g
 		return nil
 	}
 
+	slog.DebugContext(ctx, "Group hierarchies.", "groupHierarchies", groupHierarchies)
 	{
 		var hierarchyStrings []string
-		for _, groupHierarchy := range groupHierarchies {
-			// This shouldn't be possible, but skip any broken hierarchies.
-			if len(groupHierarchy) == 0 {
-				continue
-			}
-
-			var groupStrings []string
-			for _, group := range groupHierarchy {
-				//slog.DebugContext(ctx, fmt.Sprintf("Group: id=%d, name=%s", group.ID, group.Name))
-				if group.Filter != "" {
-					groupStrings = append(groupStrings, group.Filter)
-				}
-			}
+		if len(groupHierarchies) == 0 {
 			if filterString != nil && *filterString != "" {
-				groupStrings = append(groupStrings, *filterString)
+				hierarchyStrings = append(hierarchyStrings, *filterString)
 			}
+		} else {
+			for _, groupHierarchy := range groupHierarchies {
+				// This shouldn't be possible, but skip any broken hierarchies.
+				if len(groupHierarchy) == 0 {
+					continue
+				}
 
-			if len(groupStrings) > 0 {
-				hierarchyString := "((" + strings.Join(groupStrings, ") AND (") + "))"
-				tailGroup := groupHierarchy[len(groupHierarchy)-1]
-				slog.DebugContext(ctx, fmt.Sprintf("Group: id=%d, name=%s, hierarchyString: %s", tailGroup.ID, tailGroup.Name, hierarchyString))
-				hierarchyStrings = append(hierarchyStrings, hierarchyString)
+				var groupStrings []string
+				for _, group := range groupHierarchy {
+					//slog.DebugContext(ctx, fmt.Sprintf("Group: id=%d, name=%s", group.ID, group.Name))
+					if group.Filter != "" {
+						groupStrings = append(groupStrings, group.Filter)
+					}
+				}
+				if filterString != nil && *filterString != "" {
+					groupStrings = append(groupStrings, *filterString)
+				}
+
+				if len(groupStrings) > 0 {
+					hierarchyString := "((" + strings.Join(groupStrings, ") AND (") + "))"
+					tailGroup := groupHierarchy[len(groupHierarchy)-1]
+					slog.DebugContext(ctx, fmt.Sprintf("Group: id=%d, name=%s, hierarchyString: %s", tailGroup.ID, tailGroup.Name, hierarchyString))
+					hierarchyStrings = append(hierarchyStrings, hierarchyString)
+				}
 			}
 		}
 

@@ -32,13 +32,16 @@ type DeleteOrganizationIDPersonIDMetadata struct {
 
 func (a *API) DeleteOrganizationIDPersonID(ctx context.Context, meta DeleteOrganizationIDPersonIDMetadata) error {
 	filter := "voter_id = " + meta.VoterID
-	limit := 1
+	limit := 2
 	persons, err := filterPersons(ctx, meta.DB, meta.CurrentUser.ID, meta.Organization.ID, nil /*no group ID*/, &filter, nil /*no fields*/, limit)
 	if err != nil {
 		return fmt.Errorf("could not filter persons: %w", err)
 	}
 	if len(persons) == 0 {
 		return restfulwrapper.NewAPIResponseError(http.StatusNotFound, "")
+	}
+	if len(persons) > 1 {
+		return fmt.Errorf("multiple persons with voter_id=%s: %d", meta.VoterID, len(persons))
 	}
 
 	person := persons[0]
@@ -75,13 +78,16 @@ type GetOrganizationIDPersonIDMetadata struct {
 
 func (a *API) GetOrganizationIDPersonID(ctx context.Context, meta GetOrganizationIDPersonIDMetadata) (output downballotapi.Envelope[downballotapi.GetPersonResponse], err error) {
 	filter := "voter_id = " + meta.VoterID
-	limit := 1
+	limit := 2
 	persons, err := filterPersons(ctx, meta.DB, meta.CurrentUser.ID, meta.Organization.ID, nil /*no group ID*/, &filter, (*[]string)(meta.Fields), limit)
 	if err != nil {
 		return output, err
 	}
 	if len(persons) == 0 {
 		return output, restfulwrapper.NewAPIResponseError(http.StatusNotFound, "")
+	}
+	if len(persons) > 1 {
+		return output, fmt.Errorf("multiple persons with voter_id=%s: %d", meta.VoterID, len(persons))
 	}
 
 	output.Message = "OK"
@@ -105,13 +111,16 @@ type PatchOrganizationIDPersonIDMetadata struct {
 
 func (a *API) PatchOrganizationIDPersonID(ctx context.Context, meta PatchOrganizationIDPersonIDMetadata) (output downballotapi.Envelope[downballotapi.GetPersonResponse], err error) {
 	filter := "voter_id = " + meta.VoterID
-	limit := 1
+	limit := 2
 	persons, err := filterPersons(ctx, meta.DB, meta.CurrentUser.ID, meta.Organization.ID, nil /*no group ID*/, &filter, nil /*no fields*/, limit)
 	if err != nil {
 		return output, err
 	}
 	if len(persons) == 0 {
 		return output, restfulwrapper.NewAPIResponseError(http.StatusNotFound, "")
+	}
+	if len(persons) > 1 {
+		return output, fmt.Errorf("multiple persons with voter_id=%s: %d", meta.VoterID, len(persons))
 	}
 
 	person := persons[0]
@@ -275,13 +284,16 @@ type GetOrganizationIDPersonIDAuditMetadata struct {
 
 func (a *API) GetOrganizationIDPersonIDAudit(ctx context.Context, meta GetOrganizationIDPersonIDAuditMetadata) (output downballotapi.Envelope[downballotapi.ListPersonAuditsResponse], err error) {
 	filter := "voter_id = " + meta.VoterID
-	limit := 1
+	limit := 2
 	persons, err := filterPersons(ctx, meta.DB, meta.CurrentUser.ID, meta.Organization.ID, nil /*no group ID*/, &filter, nil /*no fields*/, limit)
 	if err != nil {
 		return output, err
 	}
 	if len(persons) == 0 {
 		return output, restfulwrapper.NewAPIResponseError(http.StatusNotFound, "")
+	}
+	if len(persons) > 1 {
+		return output, fmt.Errorf("multiple persons with voter_id=%s: %d", meta.VoterID, len(persons))
 	}
 
 	fieldDefinitionByIDMap := map[uint64]*schema.PersonFieldDefinition{}
