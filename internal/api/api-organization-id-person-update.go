@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -11,9 +12,11 @@ import (
 	"github.com/downballot/downballot/downballotapi"
 	"github.com/downballot/downballot/internal/api/downballotwrapper"
 	"github.com/downballot/downballot/internal/filter"
+	"github.com/downballot/downballot/internal/normalize"
 	"github.com/downballot/downballot/internal/schema"
 	"github.com/downballot/downballot/internal/schema/sqltype"
 	"github.com/tekkamanendless/restfulwrapper"
+	googlemaps "googlemaps.github.io/maps"
 	"gorm.io/gorm"
 )
 
@@ -91,6 +94,50 @@ func (a *API) PostOrganizationIDPersonUpdate(ctx context.Context, meta PostOrgan
 			fieldDefinitionByNameMap[fieldDefinition.Name] = fieldDefinition
 		}
 	}
+
+	if meta.Body.Fields != nil && meta.Body.Fields["residential_address"] != nil {
+		mapsClient, err := googlemaps.NewClient(googlemaps.WithAPIKey(a.googleMapsServerAPIKey))
+		if err != nil {
+			return output, fmt.Errorf("could not create Google Maps client: %w", err)
+		}
+		nccClient := &normalize.NewCastleCountyGIS{}
+
+		normalizePerson := downballotapi.NormalizePerson{
+			ID:        "bogus",
+			VoterID:   "bogus",
+			OldFields: map[string]*string{},
+			NewFields: map[string]*string{},
+		}
+		for _, name := range []string{"residential_address"} {
+			value := meta.Body.Fields[name]
+			normalizePerson.OldFields[name] = value
+			normalizePerson.NewFields[name] = value
+		}
+		err = normalize.Location(ctx, mapsClient, nccClient, &normalizePerson)
+		if err != nil {
+			return output, fmt.Errorf("could not normalize location: %w", err)
+		}
+		slog.DebugContext(ctx, fmt.Sprintf("Normalized person: OldFields (%d)", len(normalizePerson.OldFields)))
+		for name, value := range normalizePerson.OldFields {
+			if value == nil {
+				slog.DebugContext(ctx, fmt.Sprintf("OldField: %s (nil)", name))
+			} else {
+				slog.DebugContext(ctx, fmt.Sprintf("OldField: %s = %s", name, *value))
+			}
+		}
+		slog.DebugContext(ctx, fmt.Sprintf("Normalized person: NewFields (%d)", len(normalizePerson.NewFields)))
+		for name, value := range normalizePerson.NewFields {
+			if value == nil {
+				slog.DebugContext(ctx, fmt.Sprintf("NewField: %s (nil)", name))
+			} else {
+				slog.DebugContext(ctx, fmt.Sprintf("NewField: %s = %s", name, *value))
+			}
+		}
+		for name, value := range normalizePerson.NewFields {
+			meta.Body.Fields[name] = value
+		}
+	}
+	slog.DebugContext(ctx, "Body", "Fields", meta.Body.Fields)
 
 	for field, value := range meta.Body.Fields {
 		fieldDefinition := fieldDefinitionByNameMap[field]

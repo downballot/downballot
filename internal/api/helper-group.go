@@ -17,7 +17,10 @@ func getGroupsForUser(db *gorm.DB, userID any, organizationID any) ([]*schema.Gr
 	err := db.Session(&gorm.Session{}).
 		Model(&schema.Group{}).
 		Where("organization_id = ?", organizationID).
-		Where("id IN (SELECT group_id FROM user_group_map WHERE user_id = ?)", userID).
+		Where(db.Session(&gorm.Session{NewDB: true, Initialized: true}).
+			Where("id IN (SELECT group_id FROM user_group_map WHERE user_id = ?)", userID).
+			Or("id IN (SELECT `group`.id FROM `group` INNER JOIN user_organization_map WHERE user_organization_map.organization_id = ? AND user_id = ? AND owner)", organizationID, userID),
+		).
 		Pluck("id", &mappedGroupIDs).
 		Error
 	if err != nil {
