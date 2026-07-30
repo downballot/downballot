@@ -380,6 +380,13 @@ func TestCampaign(t *testing.T) {
 			}, nil)
 			require.NoError(t, err)
 		}
+
+		err := adminClient.Do(ctx, http.MethodPost, "/api/v1/organization/"+organizationId+"/person-field", downballotapi.CreatePersonFieldRequest{
+			Name:               "computed.age",
+			Type:               downballotapi.PersonFieldDefinitionTypeInteger,
+			ComputedExpression: "2026 - birthday_year",
+		}, nil)
+		require.NoError(t, err)
 	}
 
 	t.Log("Import the voter file as the admin user.")
@@ -536,6 +543,31 @@ func TestCampaign(t *testing.T) {
 		assert.Contains(t, names, "ACE D PORTGAS")
 		assert.Contains(t, names, "SENGOKU BUDDHA")
 	}
+
+	t.Run("Computed fields", func(t *testing.T) {
+		t.Run("Age", func(t *testing.T) {
+			t.Run("Admin", func(t *testing.T) {
+				t.Run("Get", func(t *testing.T) {
+					var output downballotapi.GetPersonResponse
+					err := adminClient.Do(ctx, http.MethodGet, "/api/v1/organization/"+organizationId+"/person/1001", nil, &output)
+					require.NoError(t, err)
+					assert.Equal(t, "1001", output.Person.VoterID)
+					assert.Equal(t, "1949", output.Person.Fields["birthday_year"])
+					assert.Equal(t, "77", output.Person.Fields["computed.age"])
+				})
+				t.Run("Search", func(t *testing.T) {
+					var output downballotapi.ListPersonsResponse
+					err := adminClient.Do(ctx, http.MethodGet, "/api/v1/organization/"+organizationId+"/person?filter=computed.age+=+77", nil, &output)
+					require.NoError(t, err)
+					if assert.Len(t, output.Persons, 1) {
+						assert.Equal(t, "1001", output.Persons[0].VoterID)
+						assert.Equal(t, "1949", output.Persons[0].Fields["birthday_year"])
+						assert.Equal(t, "77", output.Persons[0].Fields["computed.age"])
+					}
+				})
+			})
+		})
+	})
 
 	t.Run("Search for a person", func(t *testing.T) {
 		t.Run("Luffy", func(t *testing.T) {

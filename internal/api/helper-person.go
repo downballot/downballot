@@ -22,18 +22,17 @@ func buildPersonQuery(ctx context.Context, db *gorm.DB, organizationID uint64, g
 
 	type FieldInfo struct {
 		FieldName               string // The name of the field.
-		InnerJoin               bool   // True if the join is an inner join, false if it is a left outer join.
 		TableName               string // The name of the table.
+		ColumnName              string // The name of the column.
+		ColumnExpression        string // The expression for the column.
 		PersonFieldDefinitionID uint64 // The ID of the person field definition.
 	}
 
 	fieldInfoMap := map[string]*FieldInfo{} // This maps a field name the table info for it.
 
 	// registerFieldTableIfNecessary registers a field table if it is not already registered.
-	//
-	// The field is assumed to be required, but if any request says that it's *not* required, then
-	// the InnerJoin field will be set to false.
-	registerFieldTableIfNecessary := func(fieldName string, required bool) error {
+	var registerFieldTableIfNecessary func(fieldName string) error
+	registerFieldTableIfNecessary = func(fieldName string) error {
 		// Handle any special cases first.
 		switch fieldName {
 		case "voter_id":
@@ -45,22 +44,62 @@ func buildPersonQuery(ctx context.Context, db *gorm.DB, organizationID uint64, g
 			return fmt.Errorf("unknown field: %s", fieldName)
 		}
 
-		var fieldInfo *FieldInfo
-		if fieldInfoMap[fieldName] != nil {
-			fieldInfo = fieldInfoMap[fieldName]
-		} else {
-			fieldInfo = &FieldInfo{
-				FieldName:               fieldName,
-				InnerJoin:               true,
-				TableName:               "person_field_join" + fmt.Sprintf("%d", len(fieldInfoMap)+1),
-				PersonFieldDefinitionID: personFieldDefinition.ID,
-			}
-			fieldInfoMap[fieldName] = fieldInfo
+		fieldInfo := fieldInfoMap[fieldName]
+		if fieldInfo != nil {
+			return nil
 		}
 
-		if !required {
-			fieldInfo.InnerJoin = false
+		if personFieldDefinition.ComputedExpression != "" {
+			tokens, err := filter.Tokenize(personFieldDefinition.ComputedExpression)
+			if err != nil {
+				return fmt.Errorf("could not tokenize computed expression: %w", err)
+			}
+
+			var parts []string
+			for _, token := range tokens {
+				slog.DebugContext(ctx, fmt.Sprintf("* %s (quoted: %t)", token.Value, token.Quote != ""))
+
+				newPart := token.String()
+				if !token.Quoted() {
+					if fieldDefinitionByNameMap[token.Value] != nil {
+						registerFieldTableIfNecessary(token.Value)
+						if fieldInfoMap[token.Value] != nil {
+							newPart = fieldInfoMap[token.Value].ColumnName
+						}
+					} else {
+						switch token.Value {
+						case "-", "+", "*", "/", "(", ")", "=", ">", "<", ">=", "<=", "!=", "~":
+							// This is legit.
+						default:
+							_, err := strconv.ParseFloat(token.Value, 64)
+							if err != nil {
+								return fmt.Errorf("could not parse float: %w", err)
+							}
+						}
+					}
+				}
+
+				parts = append(parts, newPart)
+			}
+			computedExpression := strings.Join(parts, " ")
+
+			fieldInfo = &FieldInfo{
+				FieldName:               fieldName,
+				ColumnName:              "computed_" + fmt.Sprintf("%d", len(fieldInfoMap)+1),
+				ColumnExpression:        computedExpression,
+				PersonFieldDefinitionID: personFieldDefinition.ID,
+			}
+		} else {
+			tableName := "person_field_join" + fmt.Sprintf("%d", len(fieldInfoMap)+1)
+			fieldInfo = &FieldInfo{
+				FieldName:               fieldName,
+				TableName:               tableName,
+				ColumnName:              tableName + ".value",
+				PersonFieldDefinitionID: personFieldDefinition.ID,
+			}
 		}
+		fieldInfoMap[fieldName] = fieldInfo
+
 		return nil
 	}
 
@@ -71,43 +110,21 @@ func buildPersonQuery(ctx context.Context, db *gorm.DB, organizationID uint64, g
 		case *filter.ClauseCondition:
 			slog.DebugContext(ctx, fmt.Sprintf("recursiveBuildInfo: ClauseCondition: %+v", typedClause))
 
-			innerJoin := true
-			switch typedClause.Operation {
-			case filter.OperationEquals:
-				// Inner join is fine.
-			case filter.OperationNotEquals:
-				innerJoin = false
-			case filter.OperationGreaterThan:
-				// Inner join is fine.
-			case filter.OperationGreaterThanOrEqual:
-				// Inner join is fine.
-			case filter.OperationLessThan:
-				// Inner join is fine.
-			case filter.OperationLessThanOrEqual:
-				// Inner join is fine.
-			case filter.OperationWildcard:
-				// Inner join is fine.
-			case filter.OperationNotWildcard:
-				// Inner join is fine.
-			default:
-				return fmt.Errorf("unknown operation: %s", typedClause.Operation)
-			}
-
-			err := registerFieldTableIfNecessary(typedClause.Name, innerJoin)
+			err := registerFieldTableIfNecessary(typedClause.Name)
 			if err != nil {
 				return err
 			}
 		case *filter.ClauseIsNull:
 			slog.DebugContext(ctx, fmt.Sprintf("recursiveBuildInfo: ClauseIsNull: %+v", typedClause))
 
-			err := registerFieldTableIfNecessary(typedClause.Name, false)
+			err := registerFieldTableIfNecessary(typedClause.Name)
 			if err != nil {
 				return err
 			}
 		case *filter.ClauseIsNotNull:
 			slog.DebugContext(ctx, fmt.Sprintf("recursiveBuildInfo: ClauseIsNotNull: %+v", typedClause))
 
-			err := registerFieldTableIfNecessary(typedClause.Name, true)
+			err := registerFieldTableIfNecessary(typedClause.Name)
 			if err != nil {
 				return err
 			}
@@ -146,9 +163,7 @@ func buildPersonQuery(ctx context.Context, db *gorm.DB, organizationID uint64, g
 		if fieldInfo == nil {
 			return "", fmt.Errorf("unknown field: %s", fieldName)
 		}
-
-		fieldColumn := fieldInfo.TableName + ".value"
-		return fieldColumn, nil
+		return fieldInfo.ColumnName, nil
 	}
 
 	var f func(clause filter.Clause, groupQuery *gorm.DB) error
@@ -173,9 +188,19 @@ func buildPersonQuery(ctx context.Context, db *gorm.DB, organizationID uint64, g
 			for _, value := range typedClause.Values {
 				switch typedClause.Operation {
 				case filter.OperationEquals:
-					subquery = subquery.Or(fieldColumn+" = ?", value)
+					switch personFieldDefinition.Type {
+					case "integer":
+						subquery = subquery.Or("CAST("+fieldColumn+" AS INTEGER) = ?", value)
+					default:
+						subquery = subquery.Or(fieldColumn+" = ?", value)
+					}
 				case filter.OperationNotEquals:
-					subquery = subquery.Where(fieldColumn+" IS NULL OR "+fieldColumn+" != ?", value)
+					switch personFieldDefinition.Type {
+					case "integer":
+						subquery = subquery.Where(fieldColumn+" IS NULL OR CAST("+fieldColumn+" AS INTEGER) != ?", value)
+					default:
+						subquery = subquery.Where(fieldColumn+" IS NULL OR "+fieldColumn+" != ?", value)
+					}
 				case filter.OperationGreaterThan:
 					switch personFieldDefinition.Type {
 					case "integer":
@@ -353,32 +378,27 @@ func buildPersonQuery(ctx context.Context, db *gorm.DB, organizationID uint64, g
 				fieldInfoList = append(fieldInfoList, fieldInfo)
 			}
 			slices.SortFunc(fieldInfoList, func(left, right *FieldInfo) int {
-				leftInnerJoin := 1
-				if !left.InnerJoin {
-					leftInnerJoin = 0
+				if left.TableName == "" && right.TableName != "" {
+					return 1
 				}
-				rightInnerJoin := 1
-				if !right.InnerJoin {
-					rightInnerJoin = 0
+				if left.TableName != "" && right.TableName == "" {
+					return -1
 				}
-				diff := -cmp.Compare(leftInnerJoin, rightInnerJoin)
-				if diff != 0 {
-					return diff
+				if left.TableName != "" && right.TableName != "" {
+					return cmp.Compare(left.TableName, right.TableName)
 				}
-				return cmp.Compare(left.TableName, right.TableName)
+
+				return cmp.Compare(left.ColumnName, right.ColumnName)
 			})
 			slog.DebugContext(ctx, fmt.Sprintf("Field info list: (%d)", len(fieldInfoList)))
 
 			// Set up the joins.
 			for _, fieldInfo := range fieldInfoList {
-				/*
-					// TODO: We can only use INNER JOIN if there are no "OR" clauses against the same table.
-					joinType := "INNER JOIN"
-					if !fieldInfo.InnerJoin {
-						joinType = "LEFT OUTER JOIN"
-					}
-				*/
-				joinType := "LEFT OUTER JOIN"
+				if fieldInfo.TableName == "" {
+					continue
+				}
+
+				joinType := "LEFT OUTER JOIN" // Note: there's no clear, easy way to force the use of an INNER JOIN, given the ability to have "OR" expressions everywhere.
 				query = query.Joins("/* "+fieldInfo.FieldName+" */ "+joinType+" person_field AS "+fieldInfo.TableName+" ON person.id = "+fieldInfo.TableName+".person_id AND "+fieldInfo.TableName+".person_field_definition_id = ?", fieldInfo.PersonFieldDefinitionID)
 			}
 
@@ -390,6 +410,17 @@ func buildPersonQuery(ctx context.Context, db *gorm.DB, organizationID uint64, g
 				return nil, err
 			}
 			query = query.Where(newQuery)
+
+			columns := []string{"person.*"}
+			for _, fieldInfo := range fieldInfoList {
+				if fieldInfo.TableName != "" {
+					continue
+				}
+
+				columnExpression := fieldInfo.ColumnExpression + " AS " + fieldInfo.ColumnName
+				columns = append(columns, columnExpression)
+			}
+			query = query.Select(strings.Join(columns, ", "))
 		}
 	}
 

@@ -44,6 +44,11 @@ type Token struct {
 	Symbol bool   // If this token is a symbol, then this is true.
 }
 
+// Quoted returns true if the token is quoted.
+func (t Token) Quoted() bool {
+	return t.Quote != ""
+}
+
 func (t Token) String() string {
 	output := t.Quote
 	if t.Quote == "" {

@@ -33,12 +33,13 @@ func (a *API) GetOrganizationIDPersonFieldID(ctx context.Context, meta GetOrgani
 	output.Message = "OK"
 	output.Success = true
 	output.Data.PersonField = &downballotapi.PersonField{
-		ID:            fmt.Sprintf("%d", meta.PersonField.ID),
-		Name:          meta.PersonField.Name,
-		Type:          downballotapi.PersonFieldDefinitionType(meta.PersonField.Type),
-		AllowEmpty:    meta.PersonField.AllowEmpty,
-		AllowedValues: meta.PersonField.AllowedValues,
-		AllowedRegex:  meta.PersonField.AllowedRegex,
+		ID:                 fmt.Sprintf("%d", meta.PersonField.ID),
+		Name:               meta.PersonField.Name,
+		Type:               downballotapi.PersonFieldDefinitionType(meta.PersonField.Type),
+		AllowEmpty:         meta.PersonField.AllowEmpty,
+		AllowedValues:      meta.PersonField.AllowedValues,
+		AllowedRegex:       meta.PersonField.AllowedRegex,
+		ComputedExpression: meta.PersonField.ComputedExpression,
 	}
 	return output, nil
 }
@@ -73,6 +74,9 @@ func (a *API) PostOrganizationIDPersonFieldID(ctx context.Context, meta PatchOrg
 	if meta.Body.AllowedRegex != nil {
 		updateMap["allowed_regex"] = *meta.Body.AllowedRegex
 	}
+	if meta.Body.ComputedExpression != nil {
+		updateMap["computed_expression"] = *meta.Body.ComputedExpression
+	}
 
 	err = meta.DB.Transaction(func(tx *gorm.DB) error {
 		err = tx.Session(&gorm.Session{NewDB: true}).
@@ -96,12 +100,13 @@ func (a *API) PostOrganizationIDPersonFieldID(ctx context.Context, meta PatchOrg
 		output.Message = "OK"
 		output.Success = true
 		output.Data.PersonField = downballotapi.PersonField{
-			ID:            fmt.Sprintf("%d", personField.ID),
-			Name:          personField.Name,
-			Type:          downballotapi.PersonFieldDefinitionType(personField.Type),
-			AllowEmpty:    personField.AllowEmpty,
-			AllowedValues: personField.AllowedValues,
-			AllowedRegex:  personField.AllowedRegex,
+			ID:                 fmt.Sprintf("%d", personField.ID),
+			Name:               personField.Name,
+			Type:               downballotapi.PersonFieldDefinitionType(personField.Type),
+			AllowEmpty:         personField.AllowEmpty,
+			AllowedValues:      personField.AllowedValues,
+			AllowedRegex:       personField.AllowedRegex,
+			ComputedExpression: personField.ComputedExpression,
 		}
 
 		return nil
