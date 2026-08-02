@@ -241,6 +241,18 @@ func TestTokenize(t *testing.T) {
 			success:     true,
 			tokens:      []string{"1", "is", "null"},
 		},
+		{
+			description: "query with function",
+			input:       "select year() + 1",
+			success:     true,
+			tokens:      []string{"select", "year", "(", ")", "+", "1"},
+		},
+		{
+			description: "sqlite query example",
+			input:       "SELECT unixepoch() - unixepoch('2004-01-01 02:34:56');",
+			success:     true,
+			tokens:      []string{"SELECT", "unixepoch", "(", ")", "-", "unixepoch", "(", "2004-01-01 02:34:56", ")", ";"},
+		},
 	}
 	for rowIndex, row := range rows {
 		t.Run(fmt.Sprintf("%d/%s", rowIndex, row.description), func(t *testing.T) {
