@@ -10,8 +10,10 @@ const (
 	OperationLessThan           string = "<"
 	OperationLessThanOrEqual    string = "<="
 	OperationNotEquals          string = "!="
-	OperationWildcard           string = "~"
 	OperationNotWildcard        string = "!~"
+	OperationSetHasAll          string = "has_all"
+	OperationSetHasOne          string = "has_one"
+	OperationWildcard           string = "~"
 )
 
 // ValidOperationMap is a map of valid operations.
@@ -24,6 +26,8 @@ var ValidOperationMap = map[string]bool{
 	OperationLessThan:           true,
 	OperationLessThanOrEqual:    true,
 	OperationNotEquals:          true,
-	OperationWildcard:           true,
 	OperationNotWildcard:        true,
+	OperationSetHasAll:          true,
+	OperationSetHasOne:          true,
+	OperationWildcard:           true,
 }

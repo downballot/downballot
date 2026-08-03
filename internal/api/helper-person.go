@@ -229,6 +229,10 @@ func buildPersonQuery(ctx context.Context, db *gorm.DB, organizationID uint64, g
 					default:
 						subquery = subquery.Or(fieldColumn+" <= ?", value)
 					}
+				case filter.OperationSetHasOne:
+					subquery = subquery.Or(fieldColumn+" LIKE ?", "%,"+value+",%")
+				case filter.OperationSetHasAll:
+					subquery = subquery.Where(fieldColumn+" LIKE ?", "%,"+value+",%")
 				case filter.OperationWildcard:
 					switch personFieldDefinition.Type {
 					case schema.PersonFieldDefinitionTypeCoordinates:
