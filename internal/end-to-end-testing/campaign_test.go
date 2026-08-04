@@ -389,6 +389,27 @@ func TestCampaign(t *testing.T) {
 			ComputedExpression: "2026 - birthday_year",
 		}, nil)
 		require.NoError(t, err)
+
+		err = adminClient.Do(ctx, http.MethodPost, "/api/v1/organization/"+organizationId+"/person-field", downballotapi.CreatePersonFieldRequest{
+			Name:               "computed.false_via_expression",
+			Type:               downballotapi.PersonFieldDefinitionTypeBoolean,
+			ComputedExpression: "1 ~ '*2*'",
+		}, nil)
+		require.NoError(t, err)
+
+		err = adminClient.Do(ctx, http.MethodPost, "/api/v1/organization/"+organizationId+"/person-field", downballotapi.CreatePersonFieldRequest{
+			Name:               "computed.false_via_math",
+			Type:               downballotapi.PersonFieldDefinitionTypeBoolean,
+			ComputedExpression: "1 > 2",
+		}, nil)
+		require.NoError(t, err)
+
+		err = adminClient.Do(ctx, http.MethodPost, "/api/v1/organization/"+organizationId+"/person-field", downballotapi.CreatePersonFieldRequest{
+			Name:               "computed.false_via_has_one",
+			Type:               downballotapi.PersonFieldDefinitionTypeBoolean,
+			ComputedExpression: "voting_history has_one 'bogus'",
+		}, nil)
+		require.NoError(t, err)
 	}
 
 	t.Log("Import the voter file as the admin user.")

@@ -9,57 +9,24 @@ import (
 
 // Parse parses a string and returns a Clause.
 func Parse(ctx context.Context, input string) (Clause, error) {
-	tokens, err := Tokenize(input)
+	tokenList, err := Tokenize(input)
 	if err != nil {
 		return nil, err
 	}
 
-	//slog.DebugContext(ctx, fmt.Sprintf("Tokens: (%d)", len(tokens)))
-	for _, token := range tokens {
+	//slog.DebugContext(ctx, fmt.Sprintf("Tokens: (%d)", len(tokenList.Tokens())))
+	for _, token := range tokenList.Tokens() {
 		slog.DebugContext(ctx, fmt.Sprintf("* %s (quoted: %t)", token.Value, token.Quote != ""))
 	}
 
-	clause, err := ParseTokens(tokens)
+	clause, err := ParseTokens(tokenList)
 	if err != nil {
 		return nil, err
 	}
 	return clause, nil
 }
 
-// readParentheticalGroup reads a parenthetical group from the tokens.
-//
-// This updates the tokens slice to remove the tokens that were read.
-func readParentheticalGroup(tokens *[]*Token) ([]*Token, error) {
-	parens := 1
-	var group []*Token
-	for len(*tokens) > 0 {
-		token := (*tokens)[0]
-		*tokens = (*tokens)[1:]
-
-		if token.Quote == "" {
-			if token.Value == "(" {
-				parens++
-				// Don't include the first paren when building out the group.
-				if parens == 1 {
-					continue
-				}
-			} else if token.Value == ")" {
-				parens--
-				// Don't include the last paren when building out the group.
-				if parens == 0 {
-					break
-				}
-			}
-		}
-		group = append(group, token)
-	}
-	if parens > 0 {
-		return nil, fmt.Errorf("mismatched parens: %d", parens)
-	}
-	return group, nil
-}
-
-func ParseTokens(tokens []*Token) (Clause, error) {
+func ParseTokens(tokenList *TokenList) (Clause, error) {
 	output := &ClauseGroup{
 		Operation: ClauseGroupOperationOr,
 	}
@@ -67,11 +34,13 @@ func ParseTokens(tokens []*Token) (Clause, error) {
 		Operation: ClauseGroupOperationAnd,
 	}
 
-	for len(tokens) > 0 {
-		token := tokens[0]
-		tokens = tokens[1:]
+	for !tokenList.IsEmpty() {
+		token, err := tokenList.Next()
+		if err != nil {
+			return nil, fmt.Errorf("error reading token: %w", err)
+		}
 
-		if token.Quote == "" && token.Value == ")" {
+		if TokenIsClosingParen(token) {
 			return nil, fmt.Errorf("unexpected close paren")
 		}
 
@@ -94,22 +63,24 @@ func ParseTokens(tokens []*Token) (Clause, error) {
 				return nil, fmt.Errorf("extra leading AND")
 			}
 
-			token = tokens[0]
-			tokens = tokens[1:]
+			token, err = tokenList.Next()
+			if err != nil {
+				return nil, fmt.Errorf("error reading token: %w", err)
+			}
 		} else if len(andGroup.Clauses) > 0 {
 			if !(token.Quote == "" && strings.Compare(strings.ToLower(token.Value), "and") == 0) {
 				return nil, fmt.Errorf("missing: AND before %q", token.Value)
 			}
 		}
 
-		if token.Quote == "" && token.Value == "(" {
-			group, err := readParentheticalGroup(&tokens)
+		if TokenIsOpeningParen(token) {
+			group, err := ReadParentheticalGroup(tokenList)
 			if err != nil {
 				return nil, err
 			}
 
 			//fmt.Printf("group: %+v\n", group) // DEBUG
-			clause, err := ParseTokens(group)
+			clause, err := ParseTokens(NewTokenList(group))
 			if err != nil {
 				return nil, err
 			}
@@ -119,11 +90,10 @@ func ParseTokens(tokens []*Token) (Clause, error) {
 
 		fieldName := token.Value
 
-		if len(tokens) == 0 {
+		token, err = tokenList.Next()
+		if err != nil {
 			return nil, fmt.Errorf("missing operation")
 		}
-		token = tokens[0]
-		tokens = tokens[1:]
 		if token.Quote != "" {
 			return nil, fmt.Errorf("invalid operation: %s", token.String())
 		}
@@ -133,11 +103,10 @@ func ParseTokens(tokens []*Token) (Clause, error) {
 			return nil, fmt.Errorf("invalid operation: %s", operation)
 		}
 
-		if len(tokens) == 0 {
+		token, err = tokenList.Next()
+		if err != nil {
 			return nil, fmt.Errorf("missing operation value")
 		}
-		token = tokens[0]
-		tokens = tokens[1:]
 
 		var clause Clause
 		switch operation {
@@ -148,12 +117,11 @@ func ParseTokens(tokens []*Token) (Clause, error) {
 					Name: fieldName,
 				}
 			case "not":
-				if len(tokens) == 0 {
+				token, err = tokenList.Next()
+				if err != nil {
 					return nil, fmt.Errorf("missing value for is not operation")
 				}
-				token = tokens[0]
-				tokens = tokens[1:]
-				if strings.ToLower(token.Value) != "null" {
+				if !token.Quoted() && strings.ToLower(token.Value) != "null" {
 					return nil, fmt.Errorf("invalid value for is not operation: %s", token.Value)
 				}
 				clause = &ClauseIsNotNull{
@@ -169,7 +137,7 @@ func ParseTokens(tokens []*Token) (Clause, error) {
 			}
 
 			if token.Quote == "" && token.Value == "(" {
-				group, err := readParentheticalGroup(&tokens)
+				group, err := ReadParentheticalGroup(tokenList)
 				if err != nil {
 					return nil, err
 				}

@@ -50,13 +50,18 @@ func buildPersonQuery(ctx context.Context, db *gorm.DB, organizationID uint64, g
 		}
 
 		if personFieldDefinition.ComputedExpression != "" {
-			tokens, err := filter.Tokenize(personFieldDefinition.ComputedExpression)
+			tokenList, err := filter.Tokenize(personFieldDefinition.ComputedExpression)
 			if err != nil {
 				return fmt.Errorf("could not tokenize computed expression: %w", err)
 			}
 
 			var parts []string
-			for _, token := range tokens {
+			for !tokenList.IsEmpty() {
+				token, err := tokenList.Next()
+				if err != nil {
+					return fmt.Errorf("error reading token: %w", err)
+				}
+
 				slog.DebugContext(ctx, fmt.Sprintf("* %s (quoted: %t)", token.Value, token.Quote != ""))
 
 				newPart := token.String()
@@ -537,10 +542,178 @@ func filterPersons(ctx context.Context, db *gorm.DB, userID uint64, organization
 			VoterID: person.VoterID,
 			Fields:  map[string]string{},
 		}
-
-		fields := personFieldsMap[person.ID]
-		for name, value := range fields {
+		for name, value := range personFieldsMap[person.ID] {
 			o.Fields[name] = value
+		}
+
+		// Compute the computed fields.
+		for _, personFieldDefinition := range fieldDefinitionByNameMap {
+			if personFieldDefinition.ComputedExpression == "" {
+				continue
+			}
+
+			var computedExpression string
+			var variables []any
+			{
+				tokenList, err := filter.Tokenize(personFieldDefinition.ComputedExpression)
+				if err != nil {
+					return nil, fmt.Errorf("could not tokenize computed expression: %w", err)
+				}
+
+				var parts []string
+				for !tokenList.IsEmpty() {
+					token, err := tokenList.Next()
+					if err != nil {
+						return nil, fmt.Errorf("error reading token: %w", err)
+					}
+					slog.DebugContext(ctx, fmt.Sprintf("* %s (quoted: %t)", token.Value, token.Quote != ""))
+
+					if token.Quoted() {
+						parts = append(parts, token.String())
+						continue
+					}
+
+					if fieldDefinitionByNameMap[token.Value] != nil {
+						parts = append(parts, "?")
+						variables = append(variables, o.Fields[token.Value])
+						continue
+					}
+
+					switch token.Value {
+					case "-", "+", "*", "/", "(", ")", ">", "<", ">=", "<=":
+						// This is legit and works the normal SQL way.
+						nextToken, err := tokenList.Peek()
+						if err != nil {
+							return nil, fmt.Errorf("error reading token: %w", err)
+						}
+						_ = nextToken
+						parts = append(parts, token.String())
+					case "=":
+						// This is legit, but we have special syntax.
+						nextToken, err := tokenList.Peek()
+						if err != nil {
+							return nil, fmt.Errorf("error reading token: %w", err)
+						}
+						if !filter.TokenIsOpeningParen(nextToken) {
+							_, err = tokenList.Next()
+							if err != nil {
+								return nil, fmt.Errorf("error reading token: %w", err)
+							}
+							parts = append(parts, token.String())
+						} else {
+							nextToken, err = tokenList.Next()
+							if err != nil {
+								return nil, fmt.Errorf("error reading token: %w", err)
+							}
+							group, err := filter.ReadParentheticalGroup(tokenList)
+							if err != nil {
+								return nil, fmt.Errorf("error reading token: %w", err)
+							}
+							for _, groupToken := range group {
+								// TODO:
+								_ = groupToken
+							}
+						}
+					case "!=":
+						// This is legit, but we have special syntax.
+						nextToken, err := tokenList.Peek()
+						if err != nil {
+							return nil, fmt.Errorf("error reading token: %w", err)
+						}
+						if !filter.TokenIsOpeningParen(nextToken) {
+							_, err = tokenList.Next()
+							if err != nil {
+								return nil, fmt.Errorf("error reading token: %w", err)
+							}
+							parts = append(parts, token.String())
+						} else {
+							nextToken, err = tokenList.Next()
+							if err != nil {
+								return nil, fmt.Errorf("error reading token: %w", err)
+							}
+							group, err := filter.ReadParentheticalGroup(tokenList)
+							if err != nil {
+								return nil, fmt.Errorf("error reading token: %w", err)
+							}
+							for _, groupToken := range group {
+								// TODO:
+								_ = groupToken
+							}
+						}
+					case "~", "!~":
+						// This is legit, but we have special syntax.
+						nextToken, err := tokenList.Peek()
+						if err != nil {
+							return nil, fmt.Errorf("error reading token: %w", err)
+						}
+						if !filter.TokenIsOpeningParen(nextToken) {
+							_, err = tokenList.Next()
+							if err != nil {
+								return nil, fmt.Errorf("error reading token: %w", err)
+							}
+							parts = append(parts, "LIKE", "?")
+							variables = append(variables, "%,"+nextToken.Value+",%")
+						} else {
+							nextToken, err = tokenList.Next()
+							if err != nil {
+								return nil, fmt.Errorf("error reading token: %w", err)
+							}
+							group, err := filter.ReadParentheticalGroup(tokenList)
+							if err != nil {
+								return nil, fmt.Errorf("error reading token: %w", err)
+							}
+							for _, groupToken := range group {
+								// TODO:
+								_ = groupToken
+							}
+						}
+					case "has_one", "has_all":
+						// This is legit, but we have special syntax.
+						nextToken, err := tokenList.Peek()
+						if err != nil {
+							return nil, fmt.Errorf("error reading token: %w", err)
+						}
+						if !filter.TokenIsOpeningParen(nextToken) {
+							nextToken, err = tokenList.Next()
+							if err != nil {
+								return nil, fmt.Errorf("error reading token: %w", err)
+							}
+							parts = append(parts, "LIKE", "?")
+							variables = append(variables, "%,"+nextToken.Value+",%")
+						} else {
+							nextToken, err = tokenList.Next()
+							if err != nil {
+								return nil, fmt.Errorf("error reading token: %w", err)
+							}
+							group, err := filter.ReadParentheticalGroup(tokenList)
+							if err != nil {
+								return nil, fmt.Errorf("error reading token: %w", err)
+							}
+							for _, groupToken := range group {
+								// TODO:
+								_ = groupToken
+							}
+						}
+					default:
+						_, err := strconv.ParseFloat(token.Value, 64)
+						if err != nil {
+							return nil, fmt.Errorf("could not parse float: %w", err)
+						}
+						parts = append(parts, token.String())
+					}
+				}
+				computedExpression = strings.Join(parts, " ")
+			}
+
+			var expressionResult string
+			err = db.Session(&gorm.Session{}).
+				Raw(`SELECT `+computedExpression+` AS expression_result`, variables...).
+				Scan(&expressionResult).
+				Error
+			if err != nil {
+				return nil, fmt.Errorf("could not execute computed expression: %w", err)
+			}
+			o.Fields[personFieldDefinition.Name] = expressionResult
 		}
 
 		output = append(output, o)
