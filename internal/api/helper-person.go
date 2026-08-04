@@ -579,7 +579,7 @@ func filterPersons(ctx context.Context, db *gorm.DB, userID uint64, organization
 						continue
 					}
 
-					switch token.Value {
+					switch strings.ToLower(token.Value) {
 					case "-", "+", "*", "/", "(", ")", ">", "<", ">=", "<=":
 						// This is legit and works the normal SQL way.
 						nextToken, err := tokenList.Peek()
@@ -694,6 +694,23 @@ func filterPersons(ctx context.Context, db *gorm.DB, userID uint64, organization
 								_ = groupToken
 							}
 						}
+					case "current_year":
+						// This is legit, but we have special syntax.
+						nextToken, err := tokenList.Next()
+						if err != nil {
+							return nil, fmt.Errorf("error reading token: %w", err)
+						}
+						if !filter.TokenIsOpeningParen(nextToken) {
+							return nil, fmt.Errorf("expected opening paren")
+						}
+						nextToken, err = tokenList.Next()
+						if err != nil {
+							return nil, fmt.Errorf("error reading token: %w", err)
+						}
+						if !filter.TokenIsClosingParen(nextToken) {
+							return nil, fmt.Errorf("expected closing paren")
+						}
+						parts = append(parts, "CAST(STRFTIME('%Y', 'NOW') AS INTEGER)")
 					default:
 						_, err := strconv.ParseFloat(token.Value, 64)
 						if err != nil {

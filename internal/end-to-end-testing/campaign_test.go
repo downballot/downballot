@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/downballot/downballot/downballotapi"
 	"github.com/downballot/downballot/internal/applicationtest"
@@ -391,6 +392,13 @@ func TestCampaign(t *testing.T) {
 		require.NoError(t, err)
 
 		err = adminClient.Do(ctx, http.MethodPost, "/api/v1/organization/"+organizationId+"/person-field", downballotapi.CreatePersonFieldRequest{
+			Name:               "computed.real_age",
+			Type:               downballotapi.PersonFieldDefinitionTypeInteger,
+			ComputedExpression: "CURRENT_YEAR() - birthday_year",
+		}, nil)
+		require.NoError(t, err)
+
+		err = adminClient.Do(ctx, http.MethodPost, "/api/v1/organization/"+organizationId+"/person-field", downballotapi.CreatePersonFieldRequest{
 			Name:               "computed.false_via_expression",
 			Type:               downballotapi.PersonFieldDefinitionTypeBoolean,
 			ComputedExpression: "1 ~ '*2*'",
@@ -568,6 +576,8 @@ func TestCampaign(t *testing.T) {
 	}
 
 	t.Run("Computed fields", func(t *testing.T) {
+		currentYear := time.Now().Year()
+
 		t.Run("Age", func(t *testing.T) {
 			t.Run("Admin", func(t *testing.T) {
 				t.Run("Get", func(t *testing.T) {
@@ -577,6 +587,7 @@ func TestCampaign(t *testing.T) {
 					assert.Equal(t, "1001", output.Person.VoterID)
 					assert.Equal(t, "1949", output.Person.Fields["birthday_year"])
 					assert.Equal(t, "77", output.Person.Fields["computed.age"])
+					assert.Equal(t, fmt.Sprintf("%d", currentYear-1949), output.Person.Fields["computed.real_age"])
 				})
 				t.Run("Search", func(t *testing.T) {
 					var output downballotapi.ListPersonsResponse
@@ -586,6 +597,7 @@ func TestCampaign(t *testing.T) {
 						assert.Equal(t, "1001", output.Persons[0].VoterID)
 						assert.Equal(t, "1949", output.Persons[0].Fields["birthday_year"])
 						assert.Equal(t, "77", output.Persons[0].Fields["computed.age"])
+						assert.Equal(t, fmt.Sprintf("%d", currentYear-1949), output.Persons[0].Fields["computed.real_age"])
 					}
 				})
 			})
