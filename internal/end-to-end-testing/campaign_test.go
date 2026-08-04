@@ -406,6 +406,13 @@ func TestCampaign(t *testing.T) {
 		require.NoError(t, err)
 
 		err = adminClient.Do(ctx, http.MethodPost, "/api/v1/organization/"+organizationId+"/person-field", downballotapi.CreatePersonFieldRequest{
+			Name:               "computed.true_via_expression",
+			Type:               downballotapi.PersonFieldDefinitionTypeBoolean,
+			ComputedExpression: "123 ~ '*2*'",
+		}, nil)
+		require.NoError(t, err)
+
+		err = adminClient.Do(ctx, http.MethodPost, "/api/v1/organization/"+organizationId+"/person-field", downballotapi.CreatePersonFieldRequest{
 			Name:               "computed.false_via_math",
 			Type:               downballotapi.PersonFieldDefinitionTypeBoolean,
 			ComputedExpression: "1 > 2",
@@ -413,9 +420,23 @@ func TestCampaign(t *testing.T) {
 		require.NoError(t, err)
 
 		err = adminClient.Do(ctx, http.MethodPost, "/api/v1/organization/"+organizationId+"/person-field", downballotapi.CreatePersonFieldRequest{
+			Name:               "computed.true_via_math",
+			Type:               downballotapi.PersonFieldDefinitionTypeBoolean,
+			ComputedExpression: "1 < 2",
+		}, nil)
+		require.NoError(t, err)
+
+		err = adminClient.Do(ctx, http.MethodPost, "/api/v1/organization/"+organizationId+"/person-field", downballotapi.CreatePersonFieldRequest{
 			Name:               "computed.false_via_has_one",
 			Type:               downballotapi.PersonFieldDefinitionTypeBoolean,
 			ComputedExpression: "voting_history has_one 'bogus'",
+		}, nil)
+		require.NoError(t, err)
+
+		err = adminClient.Do(ctx, http.MethodPost, "/api/v1/organization/"+organizationId+"/person-field", downballotapi.CreatePersonFieldRequest{
+			Name:               "computed.true_via_has_one",
+			Type:               downballotapi.PersonFieldDefinitionTypeBoolean,
+			ComputedExpression: "',thing1,thing2,' has_one 'thing1'",
 		}, nil)
 		require.NoError(t, err)
 	}
@@ -588,6 +609,12 @@ func TestCampaign(t *testing.T) {
 					assert.Equal(t, "1949", output.Person.Fields["birthday_year"])
 					assert.Equal(t, "77", output.Person.Fields["computed.age"])
 					assert.Equal(t, fmt.Sprintf("%d", currentYear-1949), output.Person.Fields["computed.real_age"])
+					assert.Equal(t, "false", output.Person.Fields["computed.false_via_expression"])
+					assert.Equal(t, "true", output.Person.Fields["computed.true_via_expression"])
+					assert.Equal(t, "false", output.Person.Fields["computed.false_via_math"])
+					assert.Equal(t, "true", output.Person.Fields["computed.true_via_math"])
+					assert.Equal(t, "false", output.Person.Fields["computed.false_via_has_one"])
+					assert.Equal(t, "true", output.Person.Fields["computed.true_via_has_one"])
 				})
 				t.Run("Search", func(t *testing.T) {
 					var output downballotapi.ListPersonsResponse
@@ -598,6 +625,12 @@ func TestCampaign(t *testing.T) {
 						assert.Equal(t, "1949", output.Persons[0].Fields["birthday_year"])
 						assert.Equal(t, "77", output.Persons[0].Fields["computed.age"])
 						assert.Equal(t, fmt.Sprintf("%d", currentYear-1949), output.Persons[0].Fields["computed.real_age"])
+						assert.Equal(t, "false", output.Persons[0].Fields["computed.false_via_expression"])
+						assert.Equal(t, "true", output.Persons[0].Fields["computed.true_via_expression"])
+						assert.Equal(t, "false", output.Persons[0].Fields["computed.false_via_math"])
+						assert.Equal(t, "true", output.Persons[0].Fields["computed.true_via_math"])
+						assert.Equal(t, "false", output.Persons[0].Fields["computed.false_via_has_one"])
+						assert.Equal(t, "true", output.Persons[0].Fields["computed.true_via_has_one"])
 					}
 				})
 			})

@@ -640,7 +640,7 @@ func filterPersons(ctx context.Context, db *gorm.DB, userID uint64, organization
 								_ = groupToken
 							}
 						}
-					case "~", "!~":
+					case "~":
 						// This is legit, but we have special syntax.
 						nextToken, err := tokenList.Peek()
 						if err != nil {
@@ -652,7 +652,34 @@ func filterPersons(ctx context.Context, db *gorm.DB, userID uint64, organization
 								return nil, fmt.Errorf("error reading token: %w", err)
 							}
 							parts = append(parts, "LIKE", "?")
-							variables = append(variables, "%,"+nextToken.Value+",%")
+							variables = append(variables, strings.ReplaceAll(nextToken.Value, "*", "%"))
+						} else {
+							nextToken, err = tokenList.Next()
+							if err != nil {
+								return nil, fmt.Errorf("error reading token: %w", err)
+							}
+							group, err := filter.ReadParentheticalGroup(tokenList)
+							if err != nil {
+								return nil, fmt.Errorf("error reading token: %w", err)
+							}
+							for _, groupToken := range group {
+								// TODO:
+								_ = groupToken
+							}
+						}
+					case "!~":
+						// This is legit, but we have special syntax.
+						nextToken, err := tokenList.Peek()
+						if err != nil {
+							return nil, fmt.Errorf("error reading token: %w", err)
+						}
+						if !filter.TokenIsOpeningParen(nextToken) {
+							_, err = tokenList.Next()
+							if err != nil {
+								return nil, fmt.Errorf("error reading token: %w", err)
+							}
+							parts = append(parts, "NOT LIKE", "?")
+							variables = append(variables, strings.ReplaceAll(nextToken.Value, "*", "%"))
 						} else {
 							nextToken, err = tokenList.Next()
 							if err != nil {
@@ -722,9 +749,21 @@ func filterPersons(ctx context.Context, db *gorm.DB, userID uint64, organization
 				computedExpression = strings.Join(parts, " ")
 			}
 
+			var wrappedExpression string
+			switch personFieldDefinition.Type {
+			case schema.PersonFieldDefinitionTypeBoolean:
+				wrappedExpression = "CASE WHEN " + computedExpression + " THEN 'true' ELSE 'false' END"
+			case schema.PersonFieldDefinitionTypeInteger:
+				wrappedExpression = "CAST(" + computedExpression + " AS INTEGER)"
+			case schema.PersonFieldDefinitionTypeString:
+				wrappedExpression = "CAST(" + computedExpression + " AS TEXT)"
+			default:
+				wrappedExpression = "(" + computedExpression + ")"
+			}
+
 			var expressionResult string
 			err = db.Session(&gorm.Session{}).
-				Raw(`SELECT `+computedExpression+` AS expression_result`, variables...).
+				Raw(`SELECT `+wrappedExpression+` AS expression_result`, variables...).
 				Scan(&expressionResult).
 				Error
 			if err != nil {
