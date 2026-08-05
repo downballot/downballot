@@ -37,12 +37,13 @@ func (a *API) GetOrganizationIDPersonField(ctx context.Context, meta GetOrganiza
 	output.Data.PersonFields = []*downballotapi.PersonField{}
 	for _, personField := range personFields {
 		u := &downballotapi.PersonField{
-			ID:            fmt.Sprintf("%d", personField.ID),
-			Name:          personField.Name,
-			Type:          downballotapi.PersonFieldDefinitionType(personField.Type),
-			AllowEmpty:    personField.AllowEmpty,
-			AllowedValues: personField.AllowedValues,
-			AllowedRegex:  personField.AllowedRegex,
+			ID:                 fmt.Sprintf("%d", personField.ID),
+			Name:               personField.Name,
+			Type:               downballotapi.PersonFieldDefinitionType(personField.Type),
+			AllowEmpty:         personField.AllowEmpty,
+			AllowedValues:      personField.AllowedValues,
+			AllowedRegex:       personField.AllowedRegex,
+			ComputedExpression: personField.ComputedExpression,
 		}
 		output.Data.PersonFields = append(output.Data.PersonFields, u)
 	}
@@ -79,12 +80,13 @@ func (a *API) PostOrganizationIDPersonField(ctx context.Context, meta PostOrgani
 	}
 
 	personField := schema.PersonFieldDefinition{
-		OrganizationID: meta.Organization.ID,
-		Name:           meta.Body.Name,
-		Type:           schema.PersonFieldDefinitionType(meta.Body.Type),
-		AllowEmpty:     meta.Body.AllowEmpty,
-		AllowedValues:  meta.Body.AllowedValues,
-		AllowedRegex:   meta.Body.AllowedRegex,
+		OrganizationID:     meta.Organization.ID,
+		Name:               meta.Body.Name,
+		Type:               schema.PersonFieldDefinitionType(meta.Body.Type),
+		AllowEmpty:         meta.Body.AllowEmpty,
+		AllowedValues:      meta.Body.AllowedValues,
+		AllowedRegex:       meta.Body.AllowedRegex,
+		ComputedExpression: meta.Body.ComputedExpression,
 	}
 
 	err = meta.DB.Transaction(func(tx *gorm.DB) error {
@@ -98,12 +100,13 @@ func (a *API) PostOrganizationIDPersonField(ctx context.Context, meta PostOrgani
 		output.Message = "OK"
 		output.Success = true
 		output.Data.PersonField = downballotapi.PersonField{
-			ID:            fmt.Sprintf("%d", personField.ID),
-			Name:          personField.Name,
-			Type:          downballotapi.PersonFieldDefinitionType(personField.Type),
-			AllowEmpty:    personField.AllowEmpty,
-			AllowedValues: personField.AllowedValues,
-			AllowedRegex:  personField.AllowedRegex,
+			ID:                 fmt.Sprintf("%d", personField.ID),
+			Name:               personField.Name,
+			Type:               downballotapi.PersonFieldDefinitionType(personField.Type),
+			AllowEmpty:         personField.AllowEmpty,
+			AllowedValues:      personField.AllowedValues,
+			AllowedRegex:       personField.AllowedRegex,
+			ComputedExpression: personField.ComputedExpression,
 		}
 
 		return nil

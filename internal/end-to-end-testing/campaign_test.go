@@ -1,11 +1,14 @@
 package endtoendtesting
 
 import (
+	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/downballot/downballot/downballotapi"
 	"github.com/downballot/downballot/internal/applicationtest"
@@ -380,6 +383,62 @@ func TestCampaign(t *testing.T) {
 			}, nil)
 			require.NoError(t, err)
 		}
+
+		err := adminClient.Do(ctx, http.MethodPost, "/api/v1/organization/"+organizationId+"/person-field", downballotapi.CreatePersonFieldRequest{
+			Name:               "computed.age",
+			Type:               downballotapi.PersonFieldDefinitionTypeInteger,
+			ComputedExpression: "2026 - birthday_year",
+		}, nil)
+		require.NoError(t, err)
+
+		err = adminClient.Do(ctx, http.MethodPost, "/api/v1/organization/"+organizationId+"/person-field", downballotapi.CreatePersonFieldRequest{
+			Name:               "computed.real_age",
+			Type:               downballotapi.PersonFieldDefinitionTypeInteger,
+			ComputedExpression: "CURRENT_YEAR() - birthday_year",
+		}, nil)
+		require.NoError(t, err)
+
+		err = adminClient.Do(ctx, http.MethodPost, "/api/v1/organization/"+organizationId+"/person-field", downballotapi.CreatePersonFieldRequest{
+			Name:               "computed.false_via_expression",
+			Type:               downballotapi.PersonFieldDefinitionTypeBoolean,
+			ComputedExpression: "1 ~ '*2*'",
+		}, nil)
+		require.NoError(t, err)
+
+		err = adminClient.Do(ctx, http.MethodPost, "/api/v1/organization/"+organizationId+"/person-field", downballotapi.CreatePersonFieldRequest{
+			Name:               "computed.true_via_expression",
+			Type:               downballotapi.PersonFieldDefinitionTypeBoolean,
+			ComputedExpression: "123 ~ '*2*'",
+		}, nil)
+		require.NoError(t, err)
+
+		err = adminClient.Do(ctx, http.MethodPost, "/api/v1/organization/"+organizationId+"/person-field", downballotapi.CreatePersonFieldRequest{
+			Name:               "computed.false_via_math",
+			Type:               downballotapi.PersonFieldDefinitionTypeBoolean,
+			ComputedExpression: "1 > 2",
+		}, nil)
+		require.NoError(t, err)
+
+		err = adminClient.Do(ctx, http.MethodPost, "/api/v1/organization/"+organizationId+"/person-field", downballotapi.CreatePersonFieldRequest{
+			Name:               "computed.true_via_math",
+			Type:               downballotapi.PersonFieldDefinitionTypeBoolean,
+			ComputedExpression: "1 < 2",
+		}, nil)
+		require.NoError(t, err)
+
+		err = adminClient.Do(ctx, http.MethodPost, "/api/v1/organization/"+organizationId+"/person-field", downballotapi.CreatePersonFieldRequest{
+			Name:               "computed.false_via_has_one",
+			Type:               downballotapi.PersonFieldDefinitionTypeBoolean,
+			ComputedExpression: "voting_history has_one 'bogus'",
+		}, nil)
+		require.NoError(t, err)
+
+		err = adminClient.Do(ctx, http.MethodPost, "/api/v1/organization/"+organizationId+"/person-field", downballotapi.CreatePersonFieldRequest{
+			Name:               "computed.true_via_has_one",
+			Type:               downballotapi.PersonFieldDefinitionTypeBoolean,
+			ComputedExpression: "',thing1,thing2,' has_one 'thing1'",
+		}, nil)
+		require.NoError(t, err)
 	}
 
 	t.Log("Import the voter file as the admin user.")
@@ -537,105 +596,210 @@ func TestCampaign(t *testing.T) {
 		assert.Contains(t, names, "SENGOKU BUDDHA")
 	}
 
+	t.Run("Computed fields", func(t *testing.T) {
+		currentYear := time.Now().Year()
+
+		t.Run("Age", func(t *testing.T) {
+			t.Run("Admin", func(t *testing.T) {
+				t.Run("Get", func(t *testing.T) {
+					var output downballotapi.GetPersonResponse
+					err := adminClient.Do(ctx, http.MethodGet, "/api/v1/organization/"+organizationId+"/person/1001", nil, &output)
+					require.NoError(t, err)
+					assert.Equal(t, "1001", output.Person.VoterID)
+					assert.Equal(t, "1949", output.Person.Fields["birthday_year"])
+					assert.Equal(t, "77", output.Person.Fields["computed.age"])
+					assert.Equal(t, fmt.Sprintf("%d", currentYear-1949), output.Person.Fields["computed.real_age"])
+					assert.Equal(t, "false", output.Person.Fields["computed.false_via_expression"])
+					assert.Equal(t, "true", output.Person.Fields["computed.true_via_expression"])
+					assert.Equal(t, "false", output.Person.Fields["computed.false_via_math"])
+					assert.Equal(t, "true", output.Person.Fields["computed.true_via_math"])
+					assert.Equal(t, "false", output.Person.Fields["computed.false_via_has_one"])
+					assert.Equal(t, "true", output.Person.Fields["computed.true_via_has_one"])
+				})
+				t.Run("Search", func(t *testing.T) {
+					var output downballotapi.ListPersonsResponse
+					err := adminClient.Do(ctx, http.MethodGet, "/api/v1/organization/"+organizationId+"/person?filter=computed.age+=+77", nil, &output)
+					require.NoError(t, err)
+					if assert.Len(t, output.Persons, 1) {
+						assert.Equal(t, "1001", output.Persons[0].VoterID)
+						assert.Equal(t, "1949", output.Persons[0].Fields["birthday_year"])
+						assert.Equal(t, "77", output.Persons[0].Fields["computed.age"])
+						assert.Equal(t, fmt.Sprintf("%d", currentYear-1949), output.Persons[0].Fields["computed.real_age"])
+						assert.Equal(t, "false", output.Persons[0].Fields["computed.false_via_expression"])
+						assert.Equal(t, "true", output.Persons[0].Fields["computed.true_via_expression"])
+						assert.Equal(t, "false", output.Persons[0].Fields["computed.false_via_math"])
+						assert.Equal(t, "true", output.Persons[0].Fields["computed.true_via_math"])
+						assert.Equal(t, "false", output.Persons[0].Fields["computed.false_via_has_one"])
+						assert.Equal(t, "true", output.Persons[0].Fields["computed.true_via_has_one"])
+					}
+				})
+			})
+		})
+	})
+
 	t.Run("Search for a person", func(t *testing.T) {
-		t.Run("Luffy", func(t *testing.T) {
-			t.Run("Admin", func(t *testing.T) {
+		rows := []struct {
+			description string
+			filters     []string
+			client      *downballotapi.Client
+			success     bool
+			outputNames []string
+		}{
+			{
+				description: "Admin: Luffy",
+				filters: []string{
+					`name ~ '*Luffy*'`,
+				},
+				client:  adminClient,
+				success: true,
+				outputNames: []string{
+					"LUFFY D MONKEY",
+				},
+			},
+			{
+				description: "User 1: Luffy",
+				filters: []string{
+					`name ~ '*Luffy*'`,
+				},
+				client:  user1Client,
+				success: true,
+				outputNames: []string{
+					"LUFFY D MONKEY",
+				},
+			},
+			{
+				description: "User 2: Luffy",
+				filters: []string{
+					`name ~ '*Luffy*'`,
+				},
+				client:  user2Client,
+				success: true,
+				outputNames: []string{
+					"LUFFY D MONKEY",
+				},
+			},
+			{
+				description: "User 3: Luffy",
+				filters: []string{
+					`name ~ '*Luffy*'`,
+				},
+				client:  user3Client,
+				success: true,
+				outputNames: []string{
+					"LUFFY D MONKEY",
+				},
+			},
+			{
+				description: "Admin: Nami",
+				filters: []string{
+					`name ~ '*Nami*'`,
+				},
+				client:  adminClient,
+				success: true,
+				outputNames: []string{
+					"NAMI BELLMERE",
+				},
+			},
+			{
+				description: "User 1: Nami",
+				filters: []string{
+					`name ~ '*Nami*'`,
+				},
+				client:      user1Client,
+				success:     true,
+				outputNames: []string{},
+			},
+			{
+				description: "User 2: Nami",
+				filters: []string{
+					`name ~ '*Nami*'`,
+				},
+				client:      user2Client,
+				success:     true,
+				outputNames: []string{},
+			},
+			{
+				description: "User 3: Nami",
+				filters: []string{
+					`name ~ '*Nami*'`,
+				},
+				client:  user3Client,
+				success: true,
+				outputNames: []string{
+					"NAMI BELLMERE",
+				},
+			},
+			{
+				description: "Admin: General election 2024",
+				filters: []string{
+					`voting_history HAS_ONE 'ge2024'`,
+				},
+				client:  adminClient,
+				success: true,
+				outputNames: []string{
+					"NAMI BELLMERE",
+					"ZORO RORONOA",
+					"USOPP MONTBLANC",
+					"TONY TONY CHOPPER",
+					"CUTTY FLAM",
+					"ROBIN NICO",
+					"GARP D MONKEY",
+					"ACE D PORTGAS",
+					"SENGOKU BUDDHA",
+				},
+			},
+			{
+				description: "Admin: General election 2024 or primary 2008",
+				filters: []string{
+					`voting_history HAS_ONE ('ge2024', 'pr2008')`,
+				},
+				client:  adminClient,
+				success: true,
+				outputNames: []string{
+					"NAMI BELLMERE",
+					"ZORO RORONOA",
+					"USOPP MONTBLANC",
+					"TONY TONY CHOPPER",
+					"CUTTY FLAM",
+					"ROBIN NICO",
+					"GARP D MONKEY",
+					"ACE D PORTGAS",
+					"SENGOKU BUDDHA",
+				},
+			},
+			{
+				description: "Admin: General election 2024 and 2008",
+				filters: []string{
+					`voting_history HAS_ALL ('ge2024', 'ge2008')`,
+				},
+				client:  adminClient,
+				success: true,
+				outputNames: []string{
+					"ZORO RORONOA",
+					"USOPP MONTBLANC",
+					"ROBIN NICO",
+				},
+			},
+		}
+		for rowIndex, row := range rows {
+			t.Run(fmt.Sprintf("%d/%s", rowIndex, row.description), func(t *testing.T) {
 				var output downballotapi.ListPersonsResponse
-				err := adminClient.Do(ctx, http.MethodGet, "/api/v1/organization/"+organizationId+"/person?filter=name+~+'*Luffy*'", nil, &output)
+				values := url.Values{}
+				for _, filter := range row.filters {
+					values.Add("filter", filter)
+				}
+				err := row.client.Do(ctx, http.MethodGet, "/api/v1/organization/"+organizationId+"/person?"+values.Encode(), nil, &output)
 				require.NoError(t, err)
 
 				t.Logf("Persons: %v", output.Persons)
-				assert.Len(t, output.Persons, 1)
+				assert.Len(t, output.Persons, len(row.outputNames))
 				names := []string{}
 				for _, person := range output.Persons {
 					names = append(names, person.Fields["name"])
 				}
-				assert.Contains(t, names, "LUFFY D MONKEY")
+				assert.Equal(t, names, row.outputNames)
 			})
-			t.Run("User 1", func(t *testing.T) {
-				var output downballotapi.ListPersonsResponse
-				err := user1Client.Do(ctx, http.MethodGet, "/api/v1/organization/"+organizationId+"/person?filter=name+~+'*Luffy*'", nil, &output)
-				require.NoError(t, err)
-
-				t.Logf("Persons: %v", output.Persons)
-				assert.Len(t, output.Persons, 1)
-				names := []string{}
-				for _, person := range output.Persons {
-					names = append(names, person.Fields["name"])
-				}
-				assert.Contains(t, names, "LUFFY D MONKEY")
-			})
-			t.Run("User 2", func(t *testing.T) {
-				var output downballotapi.ListPersonsResponse
-				err := user2Client.Do(ctx, http.MethodGet, "/api/v1/organization/"+organizationId+"/person?filter=name+~+'*Luffy*'", nil, &output)
-				require.NoError(t, err)
-
-				t.Logf("Persons: %v", output.Persons)
-				assert.Len(t, output.Persons, 1)
-				names := []string{}
-				for _, person := range output.Persons {
-					names = append(names, person.Fields["name"])
-				}
-				assert.Contains(t, names, "LUFFY D MONKEY")
-			})
-			t.Run("User 3", func(t *testing.T) {
-				var output downballotapi.ListPersonsResponse
-				err := user3Client.Do(ctx, http.MethodGet, "/api/v1/organization/"+organizationId+"/person?filter=name+~+'*Luffy*'", nil, &output)
-				require.NoError(t, err)
-
-				t.Logf("Persons: %v", output.Persons)
-				assert.Len(t, output.Persons, 1)
-				names := []string{}
-				for _, person := range output.Persons {
-					names = append(names, person.Fields["name"])
-				}
-				assert.Contains(t, names, "LUFFY D MONKEY")
-			})
-		})
-		t.Run("Nami", func(t *testing.T) {
-			t.Run("Admin", func(t *testing.T) {
-				var output downballotapi.ListPersonsResponse
-				err := adminClient.Do(ctx, http.MethodGet, "/api/v1/organization/"+organizationId+"/person?filter=name+~+'*Nami*'", nil, &output)
-				require.NoError(t, err)
-
-				t.Logf("Persons: %v", output.Persons)
-				assert.Len(t, output.Persons, 1)
-				names := []string{}
-				for _, person := range output.Persons {
-					names = append(names, person.Fields["name"])
-				}
-				assert.Contains(t, names, "NAMI BELLMERE")
-			})
-			t.Run("User 1", func(t *testing.T) {
-				var output downballotapi.ListPersonsResponse
-				err := user1Client.Do(ctx, http.MethodGet, "/api/v1/organization/"+organizationId+"/person?filter=name+~+'*Nami*'", nil, &output)
-				require.NoError(t, err)
-
-				t.Logf("Persons: %v", output.Persons)
-				assert.Len(t, output.Persons, 0)
-			})
-			t.Run("User 2", func(t *testing.T) {
-				var output downballotapi.ListPersonsResponse
-				err := user2Client.Do(ctx, http.MethodGet, "/api/v1/organization/"+organizationId+"/person?filter=name+~+'*Nami*'", nil, &output)
-				require.NoError(t, err)
-
-				t.Logf("Persons: %v", output.Persons)
-				assert.Len(t, output.Persons, 0)
-			})
-			t.Run("User 3", func(t *testing.T) {
-				var output downballotapi.ListPersonsResponse
-				err := user3Client.Do(ctx, http.MethodGet, "/api/v1/organization/"+organizationId+"/person?filter=name+~+'*Nami*'", nil, &output)
-				require.NoError(t, err)
-
-				t.Logf("Persons: %v", output.Persons)
-				assert.Len(t, output.Persons, 1)
-				names := []string{}
-				for _, person := range output.Persons {
-					names = append(names, person.Fields["name"])
-				}
-				assert.Contains(t, names, "NAMI BELLMERE")
-			})
-		})
+		}
 	})
 
 	t.Run("Person modification workflow", func(t *testing.T) {
