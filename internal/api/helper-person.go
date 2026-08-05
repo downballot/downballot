@@ -75,6 +75,12 @@ func buildPersonQuery(ctx context.Context, db *gorm.DB, organizationID uint64, g
 						switch token.Value {
 						case "-", "+", "*", "/", "(", ")", "=", ">", "<", ">=", "<=", "!=", "~":
 							// This is legit.
+						case "has_one", "has_all":
+						// This is legit.
+						case "current_year":
+							// This is legit.
+						case "and", "or":
+							// This is legit.
 						default:
 							_, err := strconv.ParseFloat(token.Value, 64)
 							if err != nil {
@@ -743,6 +749,14 @@ func filterPersons(ctx context.Context, db *gorm.DB, userID uint64, organization
 							return nil, fmt.Errorf("expected closing paren")
 						}
 						parts = append(parts, "CAST(STRFTIME('%Y', 'NOW') AS INTEGER)")
+					case "and", "or":
+						// This is legit and works the normal SQL way.
+						nextToken, err := tokenList.Peek()
+						if err != nil {
+							return nil, fmt.Errorf("error reading token: %w", err)
+						}
+						_ = nextToken
+						parts = append(parts, token.String())
 					default:
 						_, err := strconv.ParseFloat(token.Value, 64)
 						if err != nil {
