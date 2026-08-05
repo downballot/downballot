@@ -613,6 +613,7 @@ func filterPersons(ctx context.Context, db *gorm.DB, userID uint64, organization
 								// TODO:
 								_ = groupToken
 							}
+							return nil, fmt.Errorf("not implemented")
 						}
 					case "!=":
 						// This is legit, but we have special syntax.
@@ -639,6 +640,7 @@ func filterPersons(ctx context.Context, db *gorm.DB, userID uint64, organization
 								// TODO:
 								_ = groupToken
 							}
+							return nil, fmt.Errorf("not implemented")
 						}
 					case "~":
 						// This is legit, but we have special syntax.
@@ -666,6 +668,7 @@ func filterPersons(ctx context.Context, db *gorm.DB, userID uint64, organization
 								// TODO:
 								_ = groupToken
 							}
+							return nil, fmt.Errorf("not implemented")
 						}
 					case "!~":
 						// This is legit, but we have special syntax.
@@ -693,6 +696,7 @@ func filterPersons(ctx context.Context, db *gorm.DB, userID uint64, organization
 								// TODO:
 								_ = groupToken
 							}
+							return nil, fmt.Errorf("not implemented")
 						}
 					case "has_one", "has_all":
 						// This is legit, but we have special syntax.
@@ -720,6 +724,7 @@ func filterPersons(ctx context.Context, db *gorm.DB, userID uint64, organization
 								// TODO:
 								_ = groupToken
 							}
+							return nil, fmt.Errorf("not implemented")
 						}
 					case "current_year":
 						// This is legit, but we have special syntax.
