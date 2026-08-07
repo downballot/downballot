@@ -44,6 +44,7 @@ func (a *API) GetOrganizationIDPersonField(ctx context.Context, meta GetOrganiza
 			AllowedValues:      personField.AllowedValues,
 			AllowedRegex:       personField.AllowedRegex,
 			ComputedExpression: personField.ComputedExpression,
+			DisplayName:        personField.DisplayName,
 		}
 		output.Data.PersonFields = append(output.Data.PersonFields, u)
 	}
@@ -87,6 +88,7 @@ func (a *API) PostOrganizationIDPersonField(ctx context.Context, meta PostOrgani
 		AllowedValues:      meta.Body.AllowedValues,
 		AllowedRegex:       meta.Body.AllowedRegex,
 		ComputedExpression: meta.Body.ComputedExpression,
+		DisplayName:        meta.Body.DisplayName,
 	}
 
 	err = meta.DB.Transaction(func(tx *gorm.DB) error {
@@ -107,6 +109,7 @@ func (a *API) PostOrganizationIDPersonField(ctx context.Context, meta PostOrgani
 			AllowedValues:      personField.AllowedValues,
 			AllowedRegex:       personField.AllowedRegex,
 			ComputedExpression: personField.ComputedExpression,
+			DisplayName:        personField.DisplayName,
 		}
 
 		return nil
