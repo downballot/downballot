@@ -12,8 +12,11 @@ type PostMapGeocodeResponse struct {
 
 // MapGeocodeResult is a result from the map/geocode endpoint.
 type MapGeocodeResult struct {
-	FormattedAddress string      `json:"formatted_address"`
-	Coordinates      Coordinates `json:"coordinates"`
+	InitialAddress       string      `json:"initial_address"`
+	PreProcessedAddress  string      `json:"pre_processed_address"`
+	FormattedAddress     string      `json:"formatted_address"`
+	PostProcessedAddress string      `json:"post_processed_address"`
+	Coordinates          Coordinates `json:"coordinates"`
 }
 
 // Coordinates is a coordinate on Earth.
