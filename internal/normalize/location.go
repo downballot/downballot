@@ -38,8 +38,9 @@ var preprocessExpressions = []processExpression{
 var postprocessExpressions = []processExpression{
 	// Fix single-letter apartment numbers.
 	// Basically, we just want to put a "#" in front of them.
+	// Note that streets can end with "N", "S", "E", and "W".
 	{
-		regex:       regexp.MustCompile(`^([^,]+) ([a-zA-Z]), `),
+		regex:       regexp.MustCompile(`^([^,]+) ([a-dA-D]), `),
 		replacement: "$1 #$2, ",
 	},
 	// Fix unconverted apartment numbers.
