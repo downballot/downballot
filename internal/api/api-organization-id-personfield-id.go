@@ -40,6 +40,7 @@ func (a *API) GetOrganizationIDPersonFieldID(ctx context.Context, meta GetOrgani
 		AllowedValues:      meta.PersonField.AllowedValues,
 		AllowedRegex:       meta.PersonField.AllowedRegex,
 		ComputedExpression: meta.PersonField.ComputedExpression,
+		DisplayName:        meta.PersonField.DisplayName,
 	}
 	return output, nil
 }
@@ -77,6 +78,9 @@ func (a *API) PostOrganizationIDPersonFieldID(ctx context.Context, meta PatchOrg
 	if meta.Body.ComputedExpression != nil {
 		updateMap["computed_expression"] = *meta.Body.ComputedExpression
 	}
+	if meta.Body.DisplayName != nil {
+		updateMap["display_name"] = *meta.Body.DisplayName
+	}
 
 	err = meta.DB.Transaction(func(tx *gorm.DB) error {
 		err = tx.Session(&gorm.Session{NewDB: true}).
@@ -107,6 +111,7 @@ func (a *API) PostOrganizationIDPersonFieldID(ctx context.Context, meta PatchOrg
 			AllowedValues:      personField.AllowedValues,
 			AllowedRegex:       personField.AllowedRegex,
 			ComputedExpression: personField.ComputedExpression,
+			DisplayName:        personField.DisplayName,
 		}
 
 		return nil

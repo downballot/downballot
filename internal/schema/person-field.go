@@ -24,6 +24,7 @@ type PersonFieldDefinition struct {
 	AllowedValues      sqltype.StringArray       `gorm:"column:allowed_values;type:text"`
 	AllowedRegex       string                    `gorm:"column:allowed_regex;type:text"`
 	ComputedExpression string                    `gorm:"column:computed_expression;type:text"`
+	DisplayName        string                    `gorm:"column:display_name;not null;size:256;type:varchar(256) collate nocase;default:''"`
 }
 
 func (PersonFieldDefinition) TableName() string {

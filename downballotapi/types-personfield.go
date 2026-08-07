@@ -22,6 +22,7 @@ type CreatePersonFieldRequest struct {
 	AllowedValues      []string                  `json:"allowed_values"`
 	AllowedRegex       string                    `json:"allowed_regex"`
 	ComputedExpression string                    `json:"computed_expression"`
+	DisplayName        string                    `json:"display_name"`
 }
 
 // CreatePersonFieldResponse is the response from creating a person field.
@@ -47,6 +48,7 @@ type PatchPersonFieldRequest struct {
 	AllowedValues      []string                   `json:"allowed_values"`
 	AllowedRegex       *string                    `json:"allowed_regex"`
 	ComputedExpression *string                    `json:"computed_expression"`
+	DisplayName        *string                    `json:"display_name"`
 }
 
 // PatchPersonFieldResponse is the response from patching the person field.
@@ -63,4 +65,5 @@ type PersonField struct {
 	AllowedValues      []string                  `json:"allowed_values"`
 	AllowedRegex       string                    `json:"allowed_regex"`
 	ComputedExpression string                    `json:"computed_expression"`
+	DisplayName        string                    `json:"display_name"`
 }
