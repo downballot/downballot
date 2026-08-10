@@ -72,13 +72,28 @@ func buildPersonQuery(ctx context.Context, db *gorm.DB, organizationID uint64, g
 							newPart = fieldInfoMap[token.Value].ColumnName
 						}
 					} else {
-						switch token.Value {
+						switch strings.ToLower(token.Value) {
 						case "-", "+", "*", "/", "(", ")", "=", ">", "<", ">=", "<=", "!=", "~":
 							// This is legit.
 						case "has_one", "has_all":
-						// This is legit.
-						case "current_year":
 							// This is legit.
+						case "current_year":
+							// This is legit, but we have special syntax.
+							nextToken, err := tokenList.Next()
+							if err != nil {
+								return fmt.Errorf("error reading token: %w", err)
+							}
+							if !filter.TokenIsOpeningParen(nextToken) {
+								return fmt.Errorf("expected opening paren")
+							}
+							nextToken, err = tokenList.Next()
+							if err != nil {
+								return fmt.Errorf("error reading token: %w", err)
+							}
+							if !filter.TokenIsClosingParen(nextToken) {
+								return fmt.Errorf("expected closing paren")
+							}
+							newPart = "CAST(STRFTIME('%Y', 'NOW') AS INTEGER)"
 						case "and", "or":
 							// This is legit.
 						default:
