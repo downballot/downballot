@@ -43,6 +43,11 @@ var postprocessExpressions = []processExpression{
 		regex:       regexp.MustCompile(`^([^,]+) ([a-dA-D]), `),
 		replacement: "$1 #$2, ",
 	},
+	// Fix clear apartment numbers after a street.
+	{
+		regex:       regexp.MustCompile(`^([^,]+) ([a-zA-Z][0-9]+), `),
+		replacement: "$1 #$2, ",
+	},
 	// Fix unconverted apartment numbers.
 	// We just want to put a "#" in front of them, instead of "Apt".
 	{
