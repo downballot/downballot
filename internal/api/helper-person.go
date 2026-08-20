@@ -809,6 +809,48 @@ func filterPersons(ctx context.Context, db *gorm.DB, userID uint64, organization
 		output = append(output, o)
 	}
 
+	// Break up the residential address into its parts, since various other tools like to have them split up.
+	// TODO: Consider doing this automatically for any "address"-type field.
+	for _, person := range output {
+		if person.Fields["residential_address"] != "" {
+			parts := strings.Split(person.Fields["residential_address"], ",")
+			for i := range parts {
+				parts[i] = strings.TrimSpace(parts[i])
+			}
+
+			if len(parts) >= 3 {
+				address1 := parts[0]
+				parts = parts[1:]
+
+				var address2 string
+				if len(parts) >= 4 {
+					address2 = parts[0]
+					parts = parts[1:]
+				}
+
+				city := parts[0]
+				parts = parts[1:]
+
+				stateAndZip := parts[0]
+				parts = parts[1:]
+
+				stateAndZipParts := strings.Split(stateAndZip, " ")
+				var state string
+				var zip string
+				if len(stateAndZipParts) >= 2 {
+					state = strings.TrimSpace(stateAndZipParts[0])
+					zip = strings.TrimSpace(stateAndZipParts[1])
+				}
+
+				person.Fields["residential_address_address1"] = address1
+				person.Fields["residential_address_address2"] = address2
+				person.Fields["residential_address_city"] = city
+				person.Fields["residential_address_state"] = state
+				person.Fields["residential_address_zip"] = zip
+			}
+		}
+	}
+
 	return output, nil
 }
 
